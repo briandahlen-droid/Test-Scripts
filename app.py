@@ -28,14 +28,24 @@ if st.button("Lookup Land Area", type="primary"):
             # Remove dashes for strap parameter
             strap = parcel_id.replace('-', '')
             
-            # Build URL with required parameters
+            # Build URL with ALL required parameters (matching working test script)
             url = (
                 f"https://www.pcpao.gov/property-details?"
                 f"basemap=BaseMapParcelAerials&"
                 f"input={parcel_id}&"
+                f"length=10&"
+                f"order_column=5&"
+                f"order_type=asc&"
                 f"parcel={parcel_id}&"
                 f"s={strap}&"
-                f"search_option=parcel_number"
+                f"sales=&"
+                f"scale=2256.994353&"
+                f"search_option=parcel_number&"
+                f"start=0&"
+                f"xmax=-9198733.675290285&"
+                f"xmin=-9199288.440909712&"
+                f"ymax=3220279.657774374&"
+                f"ymin=3219932.705325626"
             )
             
             try:
