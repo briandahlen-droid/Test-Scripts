@@ -129,6 +129,156 @@ ZONING_DESCRIPTIONS = {
     'WATER': 'WATER'
 }
 
+# Unincorporated Pinellas County Zoning code to description mapping
+# Extracted from PublicWebGIS/Landuse_Zoning/MapServer/1
+UNINCORPORATED_ZONING_DESCRIPTIONS = {
+    'AL': 'Aquatic Lands',
+    'AL-CO': 'Aquatic Lands - Conditional Overlay',
+    'AL-W': 'Aquatic Lands - Wellhead Protection Overlay',
+    'AL-W-CO': 'Aquatic Lands - Wellhead Protection Overlay - Conditional Overlay',
+    'C-1': 'Neighborhood Commercial',
+    'C-1-CO': 'Neighborhood Commercial - Conditional Overlay',
+    'C-1-H': 'Neighborhood Commerical - Historic District',
+    'C-1-W': 'Neighborhood Commercial - Wellhead Protection Overlay',
+    'C-1-W-CO': 'Neighborhood Commercial - Wellhead Protection Overlay - Conditional Overlay',
+    'CP': 'Commercial Parkway',
+    'CP-CO': 'Commercial Parkway - Conditional Overlay',
+    'CP-W': 'Commercial Parkway - Wellhead Protection Overlay',
+    'CP-W-CO': 'Commercial Parkway - Wellhead Protection Overlay - Conditional Overlay',
+    'CR': 'Commercial Recreation',
+    'CR-CO': 'Commercial Recreation - Conditional Overlay',
+    'CR-W': 'Commercial Recreation - Wellhead Protection Overlay',
+    'CR-W-CO': 'Commercial Recreation - Wellhead Protection Overlay - Conditional Overlay',
+    'E-1': 'Employment 1',
+    'E-1-CO': 'Employment 1 - Conditional Overlay',
+    'E-1-W': 'Employment 1 - Wellhead Protection Overlay',
+    'E-1-W-CO': 'Employment 1 - Wellhead Protection Overlay - Conditional Overlay',
+    'E-2': 'Employment 2',
+    'E-2-CO': 'Employment 2 - Conditional Overlay',
+    'E-2-W': 'Employment 2 - Wellhead Protection Overlay',
+    'E-2-W-CO': 'Employment 2 - Wellhead Protection Overlay - Conditional Overlay',
+    'FBC': 'Form Based Code District',
+    'FBC-CO': 'Form Based Code District - Conditional Overlay',
+    'FBC-W': 'Form Based Code District - Wellhead Protection Overlay',
+    'FBC-W-CO': 'Form Based Code District - Wellhead Protection Overlay - Conditional Overlay',
+    'FBR': 'Facilities-Based Recreation',
+    'FBR-CO': 'Facilities-Based Recreation - Conditional Overlay',
+    'FBR-W': 'Facilities-Based Recreation - Wellhead Protection Overlay',
+    'FBR-W-CO': 'Facilities-Based Recreation - Wellhead Protection Overlay - Conditional Overlay',
+    'GI': 'General Institutional',
+    'GI-CO': 'General Institutional - Conditional Overlay',
+    'GI-W': 'General Institutional - Wellhead Protection Overlay',
+    'GI-W-CO': 'General Institutional - Wellhead Protection Overlay - Conditional Overlay',
+    'GO': 'General Office',
+    'GO-CO': 'General Office - Conditional Overlay',
+    'GO-W': 'General Office - Wellhead Protection Overlay',
+    'GO-W-CO': 'General Office - Wellhead Protection Overlay - Conditional Overlay',
+    'I': 'Industrial',
+    'I-CO': 'Industrial - Conditional Overlay',
+    'I-W': 'Industrial - Wellhead Protection Overlay',
+    'I-W-CO': 'Industrial - Wellhead Protection Overlay',
+    'IPD': 'Industrial Planned Development',
+    'IPD-CO': 'Industrial Planned Development - Conditional Overlay',
+    'IPD-W': 'Industrial Planned Development - Wellhead Protection Overlay',
+    'IPD-W-CO': 'Industrial Planned Development - Wellhead Protection Overlay - Conditional Overlay',
+    'LI': 'Limited Institutional',
+    'LI-CO': 'Limited Institutional - Conditional Overlay',
+    'LI-W': 'Limited Institutional - Wellhead Protection Overlay',
+    'LI-W-CO': 'Limited Institutional - Wellhead Protection Overlay - Conditional Overlay',
+    'LO': 'Limited Office',
+    'LO-CO': 'Limited Office - Conditional Overlay',
+    'LO-W': 'Limited Office - Wellhead Protection Overlay',
+    'LO-W-CO': 'Limited Office - Wellhead Protection Overlay - Conditional Overlay',
+    'MXD': 'Mixed-Use District',
+    'MXD-CO': 'Mixed-Use District - Conditional Overlay',
+    'MXD-W': 'Mixed-Use District - Wellhead Protection Overlay',
+    'MXD-W-CO': 'Mixed-Use District - Wellhead Protection Overlay - Conditional Overlay',
+    'OPH-D': 'Old Palm Harbor Downtown',
+    'OPH-D-CO': 'Old Palm Harbor Downtown - Conditional Overlay',
+    'OPH-D-H': 'Old Palm Harbor Downtown - Historic District',
+    'OPH-D-W': 'Old Palm Harbor Downtown - Wellhead Protection Overlay',
+    'OPH-D-W-CO': 'Old Palm Harbor Downtown - Wellhead Protection Overlay - Conditional Overlay',
+    'P-C': 'Preservation Conservation',
+    'P-C-CO': 'Preservation Conservation - Conditional Overlay',
+    'P-C-W': 'Preservation Conservation - Wellhead Protection Overlay',
+    'P-C-W-CO': 'Preservation Conservation - Wellhead Protection Overlay - Conditional Overlay',
+    'P-RM': 'Preservation Resource Management',
+    'P-RM-CO': 'Preservation Resource Management - Conditional Overlay',
+    'P-RM-W': 'Preservation Resource Management - Wellhead Protection Overlay',
+    'P-RM-W-CO': 'Preservation Resource Management - Wellhead Protection Overlay - Conditional Overlay',
+    'P.C.AIRPORT': 'PC Airport',
+    'P.C.AIRPORT-CO': 'PC Airport - Conditional Overlay',
+    'P.C.AIRPORT-W': 'PC Airport - Wellhead Protection Overlay',
+    'P.C.AIRPORT-W-CO': 'PC Airport- Wellhead Protection Overlay - Conditional Overlay',
+    'R-1': 'Single Family Residential (9,500 SF Min)',
+    'R-1-CO': 'Single Family Residential (9,500 SF Min) - Conditional Overlay',
+    'R-1-W': 'Single Family Residential (9,500 SF Min) - Wellhead Protection Overlay',
+    'R-1-W-CO': 'Single Family Residential (9,500 SF Min) - Wellhead Protection Overlay - Conditional Overlay',
+    'R-2': 'Single Family Residential (7,500 SF Min)',
+    'R-2-CO': 'Single Family Residential (7,500 SF Min) - Conditional Overlay',
+    'R-2-W': 'Single Family Residential (7,500 SF Min) - Wellhead Protection Overlay',
+    'R-2-W-CO': 'Single Family Residential (7,500 SF Min) - Wellhead Protection Overlay - Conditional Overlay',
+    'R-3': 'Single Family Residential (6,000 SF Min)',
+    'R-3-CO': 'Single Family Residential (6,000 SF Min) - Conditional Overlay',
+    'R-3-H': 'Single Family Residential (6,000 SF Min) - Historic District',
+    'R-3-W': 'Single Family Residential (6,000 SF Min) - Wellhead Protection Overlay',
+    'R-3-W-CO': 'Single Family Residential (6,000 SF Min) - Wellhead Protection Overlay - Conditional Overlay',
+    'R-4': 'One, Two and Three Family Residential',
+    'R-4-CO': 'One, Two and Three Family Residential - Conditional Overlay',
+    'R-4-W': 'One, Two and Three Family Residential - Wellhead Protection Overlay',
+    'R-4-W-CO': 'One, Two and Three Family Residential - Wellhead Protection Overlay - Conditional Overlay',
+    'R-5': 'Urban Residential District',
+    'R-5-CO': 'Urban Residential District - Conditional Overlay',
+    'R-5-W': 'Urban Residential District - Wellhead Protection Overlay',
+    'R-5-W-CO': 'Urban Residential District - Wellhead Protection Overlay - Conditional Overlay',
+    'R-A': 'Residential Agriculture',
+    'R-A-CO': 'Residential Agriculture - Conditional Overlay',
+    'R-A-W': 'Residential Agriculture - Wellhead Protection Overlay',
+    'R-A-W-CO': 'Residential Agriculture - Wellhead Protection Overlay - Conditional Overlay',
+    'R-E': 'Residential Estate',
+    'R-E-C-T': 'Residential Estate - Transient Accommodation Overlay',
+    'R-E-CO': 'Residential Estate - Conditional Overlay',
+    'R-E-W': 'Residential Estate - Wellhead Protection Overlay',
+    'R-E-W-CO': 'Residential Estate - Wellhead Protection Overlay - Conditional Overlay',
+    'R-R': 'Rural Residential',
+    'R-R-CO': 'Rural Residential - Conditional Overlay',
+    'R-R-H': 'Rural Residential - Historic District',
+    'R-R-W': 'Rural Residnetial - Wellhead Protection Overlay',
+    'R-R-W-CO': 'Rural Residential - Wellhead Protection Overlay - Conditional Overlay',
+    'RBR': 'Resource-Based Recreation',
+    'RBR-CO': 'Resource-Based Recreation - Conditional Overlay',
+    'RBR-W': 'Resource-Based Recreation - Wellhead Protection Overlay',
+    'RBR-W-CO': 'Resource-Based Recreation - Wellhead Protection Overlay - Conditional Overlay',
+    'RM': 'Multi-Family Residential (see FLUM for density)',
+    'RM-CO': 'Multi-Family Residential (see FLUM for density) - Conditional Overlay',
+    'RM-W': 'Multi-Family Residential (see FLUM for density) - Wellhead Protection Overlay',
+    'RM-W-CO': 'Multi-Family Residential (see FLUM for density) - Wellhead Protection Overlay - Conditional Overlay',
+    'RMH': 'Residential Mobile/Manufactured Home',
+    'RMH-CO': 'Residential Mobile/Manufactured Home - Conditional Overlay',
+    'RMH-W': 'Residential Mobile/Manufactured Home - Wellhead Protection Overlay',
+    'RMH-W-CO': 'Residential Mobile/Manufactured Home - Wellhead Protection Overlay - Conditional Overlay',
+    'RPD': 'Residential Planned Development (see FLUM for density)',
+    'RPD-CO': 'Residential Planned Development (see FLUM for density) - Conditional Overlay',
+    'RPD-W': 'Residential Planned Developlment (see FLUM for density) - Wellhead Protection Overlay',
+    'RPD-W-CO': 'Residential Planned Development (see FLUM for density) - Wellhead Protection Overlay - Conditional Overlay',
+    'UZ': 'Unknown Zoning',
+    'UZ-CO': 'Unknown Zoning - Conditional Overlay',
+    'UZ-W': 'Unknown Zoning - Wellhead Protection Overlay',
+    'UZ-W-CO': 'Unknown Zoning - Wellhead Protection Overlay - Conditional Overlay',
+    'OPH-D-W': 'Old Palm Harbor Downtown - Wellhead Protection Overlay',
+    'C-T': 'Transient Accommodation Overlay',
+    'HPO': 'Historic Preservation Overlay',
+    'E-1-C-T': 'Employment 1 - Transient Accommodation Overlay',
+    'C-2': 'General Commercial and Services',
+    'DPH-FBC': 'Downtown Palm Harbor Form Based Code',
+    'C-2-C-T': 'General Commercial and Services Transient Accommodations Overlay',
+    'L-FBC': 'Lealman - Form Based Code',
+    'C-2-CO': 'General Commercial and Services - Conditional Overlay',
+    'C-2-H': 'General Commercial and Services - Historic District',
+    'C-2-W': 'General Commercial and Services - Wellhead Protection Overlay',
+    'C-2-W-CO': 'General Commercial and Services - Wellhead Proteciton Overlay - Conditional Overlay',
+}
+
 # ============================================================================
 # UTILITY FUNCTIONS
 # ============================================================================
@@ -355,9 +505,9 @@ def is_unincorporated(city_name):
 def lookup_unincorporated_zoning(address):
     """
     Lookup zoning and FLU for unincorporated Pinellas County areas.
-    Uses Pinellas County AccelaReference layers.
+    Uses PublicWebGIS/Landuse_Zoning/MapServer/1 (Zoning - Unincorporated).
     
-    Returns: dict with zoning_code, future_land_use, descriptions
+    Returns: dict with zoning_code, zoning_description, future_land_use, future_land_use_description
     """
     if not address:
         return {'success': False, 'error': 'Address required for zoning lookup'}
@@ -383,8 +533,31 @@ def lookup_unincorporated_zoning(address):
         location = geocode_data['candidates'][0]['location']
         x, y = location['x'], location['y']
         
-        # Step 2: Query Future Land Use layer (AccelaReference Layer 1)
-        flu_url = "https://egis.pinellas.gov/gis/rest/services/Accela/AccelaReference/MapServer/1/query"
+        # Step 2: Query Zoning layer (Layer 1 - Zoning - Unincorporated)
+        zoning_url = "https://egis.pinellas.gov/gis/rest/services/PublicWebGIS/Landuse_Zoning/MapServer/1/query"
+        zoning_params = {
+            'geometry': f"{x},{y}",
+            'geometryType': 'esriGeometryPoint',
+            'inSR': '4326',
+            'spatialRel': 'esriSpatialRelIntersects',
+            'outFields': 'ZONEDESC',  # This field has the coded value domain
+            'returnGeometry': 'false',
+            'f': 'json'
+        }
+        
+        zoning_response = session.get(zoning_url, params=zoning_params, timeout=15)
+        zoning_data = zoning_response.json()
+        
+        zoning_code = ''
+        zoning_desc = ''
+        if zoning_data.get('features'):
+            zoning_attrs = zoning_data['features'][0]['attributes']
+            zoning_code = zoning_attrs.get('ZONEDESC', '')  # This returns the CODE
+            # Look up the description from our dictionary
+            zoning_desc = UNINCORPORATED_ZONING_DESCRIPTIONS.get(zoning_code, '')
+        
+        # Step 3: Query Future Land Use layer (Layer 0)
+        flu_url = "https://egis.pinellas.gov/gis/rest/services/PublicWebGIS/Landuse_Zoning/MapServer/0/query"
         flu_params = {
             'geometry': f"{x},{y}",
             'geometryType': 'esriGeometryPoint',
@@ -405,30 +578,10 @@ def lookup_unincorporated_zoning(address):
             flu_code = flu_attrs.get('LANDUSECODE', '')
             flu_desc = flu_attrs.get('LANDUSEDESC', '')
         
-        # Step 3: Query Zoning from AccelaAddressParcel Layer 1
-        zoning_url = "https://egis.pinellas.gov/gis/rest/services/Accela/AccelaAddressParcel/MapServer/1/query"
-        zoning_params = {
-            'geometry': f"{x},{y}",
-            'geometryType': 'esriGeometryPoint',
-            'inSR': '4326',
-            'spatialRel': 'esriSpatialRelIntersects',
-            'outFields': 'ZONECLASS',
-            'returnGeometry': 'false',
-            'f': 'json'
-        }
-        
-        zoning_response = session.get(zoning_url, params=zoning_params, timeout=15)
-        zoning_data = zoning_response.json()
-        
-        zoning_code = ''
-        if zoning_data.get('features'):
-            zoning_attrs = zoning_data['features'][0]['attributes']
-            zoning_code = zoning_attrs.get('ZONECLASS', '')
-        
         return {
             'success': True,
             'zoning_code': zoning_code,
-            'zoning_description': None,  # Unincorporated doesn't provide descriptions
+            'zoning_description': zoning_desc,
             'future_land_use': flu_code,
             'future_land_use_description': flu_desc
         }
