@@ -209,6 +209,11 @@ def scrape_pinellas_property(parcel_id):
         address_soup = BeautifulSoup(address_html, 'lxml')
         address = address_soup.get_text(strip=True)
         
+        # Column 6: Current Tax District (this IS the city)
+        tax_dist_html = result_row[6] if len(result_row) > 6 else ''
+        tax_dist_soup = BeautifulSoup(tax_dist_html, 'lxml')
+        city = tax_dist_soup.get_text(strip=True)  # Use tax district directly as city
+        
         # Column 7: Property Use / DOR Code
         use_html = result_row[7] if len(result_row) > 7 else ''
         use_soup = BeautifulSoup(use_html, 'lxml')
@@ -218,19 +223,6 @@ def scrape_pinellas_property(parcel_id):
         legal_html = result_row[8] if len(result_row) > 8 else ''
         legal_soup = BeautifulSoup(legal_html, 'lxml')
         legal_desc = legal_soup.get_text(strip=True)
-        
-        # Extract city from address
-        city = ''
-        if 'CLEARWATER' in address.upper():
-            city = 'Clearwater'
-        elif 'ST. PETERSBURG' in address.upper() or 'ST PETERSBURG' in address.upper():
-            city = 'St. Petersburg'
-        elif 'LARGO' in address.upper():
-            city = 'Largo'
-        elif 'PINELLAS PARK' in address.upper():
-            city = 'Pinellas Park'
-        else:
-            city = 'Unincorporated Pinellas'
         
         # Get acreage from detail page
         sqft = None
