@@ -765,56 +765,34 @@ def lookup_clearwater_zoning(address):
             zoning_code = zoning_attrs.get('ZONING', '')
             zoning_desc = zoning_attrs.get('ZONING_DESC', '')
         
-        # Step 3: Query Future Land Use layer (try both layer 0 and 1)
+        # Step 3: Query Future Land Use layer (Layer 0 confirmed)
+        # Fetch coded values for FLU
+        flu_lookup = fetch_coded_values(
+            "https://gis.myclearwater.com/arcgis/rest/services/ArcGISMapServices/FLU_w_PPC_Colors_WGS84/MapServer/0",
+            "LU"
+        )
+        
+        flu_url = "https://gis.myclearwater.com/arcgis/rest/services/ArcGISMapServices/FLU_w_PPC_Colors_WGS84/MapServer/0/query"
+        flu_params = {
+            'geometry': f"{x},{y}",
+            'geometryType': 'esriGeometryPoint',
+            'inSR': '4326',
+            'spatialRel': 'esriSpatialRelIntersects',
+            'outFields': 'LU',  # The actual field name!
+            'returnGeometry': 'false',
+            'f': 'json'
+        }
+        
+        flu_response = session.get(flu_url, params=flu_params, timeout=15)
+        flu_data = flu_response.json()
+        
         flu_code = ''
         flu_desc = ''
-        
-        for layer_id in [0, 1]:
-            flu_url = f"https://gis.myclearwater.com/arcgis/rest/services/ArcGISMapServices/FLU_w_PPC_Colors_WGS84/MapServer/{layer_id}/query"
-            flu_params = {
-                'geometry': f"{x},{y}",
-                'geometryType': 'esriGeometryPoint',
-                'inSR': '4326',
-                'spatialRel': 'esriSpatialRelIntersects',
-                'outFields': '*',  # Get all fields
-                'returnGeometry': 'false',
-                'f': 'json'
-            }
-            
-            flu_response = session.get(flu_url, params=flu_params, timeout=15)
-            flu_data = flu_response.json()
-            
-            if flu_data.get('features'):
-                flu_attrs = flu_data['features'][0]['attributes']
-                
-                # Try many possible field name combinations
-                for code_field in ['FLU', 'FLUM', 'LANDUSE', 'LAND_USE', 'FUTURE_LAND_USE', 'FLU_CODE', 'LANDUSECODE']:
-                    if code_field in flu_attrs and flu_attrs[code_field]:
-                        flu_code = flu_attrs[code_field]
-                        break
-                
-                for desc_field in ['FLU_DESC', 'FLUM_DESC', 'LANDUSE_DESC', 'LAND_USE_DESC', 'DESCRIPTION', 'FLU_DESCRIPTION', 'LANDUSEDESC']:
-                    if desc_field in flu_attrs and flu_attrs[desc_field]:
-                        flu_desc = flu_attrs[desc_field]
-                        break
-                
-                # If we still don't have both, check for combined field
-                if not flu_code or not flu_desc:
-                    for combined_field in ['Countywide_Plan_Map_Category_1', 'FLU_CATEGORY', 'CATEGORY']:
-                        if combined_field in flu_attrs and flu_attrs[combined_field]:
-                            combined_value = flu_attrs[combined_field]
-                            # Return combined value for both code and desc
-                            return {
-                                'success': True,
-                                'zoning_code': zoning_code,
-                                'zoning_description': zoning_desc,
-                                'future_land_use': combined_value,
-                                'future_land_use_description': None
-                            }
-                
-                # If we found something in this layer, stop trying other layers
-                if flu_code:
-                    break
+        if flu_data.get('features'):
+            flu_attrs = flu_data['features'][0]['attributes']
+            flu_code = flu_attrs.get('LU', '')
+            # Look up description from coded values
+            flu_desc = flu_lookup.get(flu_code, '')
         
         return {
             'success': True,
