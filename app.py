@@ -129,8 +129,11 @@ ZONING_DESCRIPTIONS = {
     'WATER': 'WATER'
 }
 
-# Unincorporated Pinellas County Zoning code to description mapping
-# Extracted from PublicWebGIS/Landuse_Zoning/MapServer/1
+# NOTE: Unincorporated Pinellas zoning and FLU coded values are now fetched 
+# dynamically from layer metadata using fetch_coded_values() function.
+# Hardcoded fallbacks kept below in case metadata fetch fails.
+
+# Unincorporated Pinellas County Zoning code to description mapping (FALLBACK)
 UNINCORPORATED_ZONING_DESCRIPTIONS = {
     'AL': 'Aquatic Lands',
     'AL-CO': 'Aquatic Lands - Conditional Overlay',
@@ -278,6 +281,107 @@ UNINCORPORATED_ZONING_DESCRIPTIONS = {
     'C-2-W': 'General Commercial and Services - Wellhead Protection Overlay',
     'C-2-W-CO': 'General Commercial and Services - Wellhead Proteciton Overlay - Conditional Overlay',
 }
+
+# Unincorporated Pinellas County Future Land Use code to description mapping (FALLBACK)
+UNINCORPORATED_FLU_DESCRIPTIONS = {
+    'RR': 'Residential Rural',
+    'RE': 'Residential Estate',
+    'RS': 'Residential Suburban',
+    'RL': 'Residential Low',
+    'RU': 'Residential Urban',
+    'RLM': 'Residential Low Medium',
+    'RM': 'Residential Medium',
+    'RH': 'Residential High',
+    'PR-I': 'Planned Redevelopment - Industrial',
+    'RFO': 'Resort Facilities',
+    'PR-C': 'Planned Redevelopment - Commercial',
+    'NO-DES': 'No Designation',
+    'CN': 'Commercial Neighborhood',
+    'CG': 'Commercial General',
+    'CR': 'Commercial Recreation',
+    'IL': 'Industrial Limited',
+    'IG': 'Industrial General',
+    'P': 'Preservation',
+    'PR-MU': 'Planned Redevelopment - Mixed Use',
+    'I': 'Institutional',
+    'PR-R': 'Planned Redevelopment - Residential',
+    'TU': 'Transportation/Utilities',
+    'ROR': 'Residential/Office/Retail',
+    'ROL': 'Residential/Office/Limited',
+    'ROG': 'Residential/Office/General',
+    'ROS': 'Recreation/Open Space',
+    'PSP': 'Public/Semi-Public',
+    'RVH': 'Residential Very High',
+    'RFM': 'Resort Facilities Medium',
+    'RFH': 'Resort Facilities High',
+    'CRD': 'Community Redevelopment Dist',
+    'CBD': 'Central Business District',
+    'CL': 'Commercial Limited',
+    'RFO-P': 'Resort Facilities Overlay/Perm',
+    'RFO-T': 'Resort Facilities Overlay/Temp',
+    'WDF': 'Water Drainage Feature',
+    'WF': 'Water Feature',
+    'WATER': 'WATER',
+    'ROAD': 'ROAD',
+    'P-RM': 'Preservation - Resource Management',
+    'MUNI': 'MUNICIPALITY',
+    'NO-D-W': 'No Designation Uninc Water',
+    'MUNI-W': 'Municipal Open Water',
+    'CRD-AC': 'Community Redevelop-Activity Ctr',
+    'AC': 'AC',
+    'AC-P': 'AC-P',
+    'RM-12.5': 'RM-12.5',
+    'TU-O': 'Transportation/Utility Overlay',
+    'E': 'Employment',
+    'AC-N': 'Activity Center - Neighborhood',
+    'AC-C': 'Activity Center - Community',
+    'AC-M': 'Activity Center - Major',
+    'MUC-P': 'Mixed Use Corridor - Primary',
+    'MUC-S': 'Mixed Use Corridor - Secondary',
+    'MUC-P-C': 'Mixed Use Corridor - Primary - Commerce',
+    'MUC-SU-NP': 'Mixed Use Corridor - Supporting - Neighborhood Park',
+    'MUC-SU-LT': 'Mixed Use Corridor - Supporting - Local Trade',
+}
+
+# ============================================================================
+# AUTOMATED CODED VALUE EXTRACTION FROM ARCGIS LAYERS
+# ============================================================================
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def fetch_coded_values(layer_url, field_name):
+    """
+    Automatically fetch coded value domain from an ArcGIS layer.
+    
+    Args:
+        layer_url: Base layer URL (e.g., "https://...MapServer/1")
+        field_name: Field with coded values (e.g., "ZONEDESC")
+    
+    Returns:
+        dict: {code: description} mapping, or empty dict if not found
+    """
+    session = get_resilient_session()
+    
+    try:
+        # Fetch layer metadata
+        metadata_url = f"{layer_url}?f=json"
+        response = session.get(metadata_url, timeout=15)
+        response.raise_for_status()
+        metadata = response.json()
+        
+        # Find the field with coded values
+        for field in metadata.get('fields', []):
+            if field.get('name') == field_name:
+                domain = field.get('domain')
+                if domain and domain.get('type') == 'codedValue':
+                    # Extract code -> name mappings
+                    coded_values = domain.get('codedValues', [])
+                    return {item['code']: item['name'] for item in coded_values}
+        
+        return {}
+    
+    except Exception as e:
+        # Return empty dict on error - calling code should handle
+        return {}
 
 # ============================================================================
 # UTILITY FUNCTIONS
@@ -505,7 +609,7 @@ def is_unincorporated(city_name):
 def lookup_unincorporated_zoning(address):
     """
     Lookup zoning and FLU for unincorporated Pinellas County areas.
-    Uses PublicWebGIS/Landuse_Zoning/MapServer/1 (Zoning - Unincorporated).
+    Uses PublicWebGIS/Landuse_Zoning/MapServer with automated coded value extraction.
     
     Returns: dict with zoning_code, zoning_description, future_land_use, future_land_use_description
     """
@@ -515,6 +619,22 @@ def lookup_unincorporated_zoning(address):
     session = get_resilient_session()
     
     try:
+        # Fetch coded value domains dynamically (cached for 24 hours)
+        zoning_lookup = fetch_coded_values(
+            "https://egis.pinellas.gov/gis/rest/services/PublicWebGIS/Landuse_Zoning/MapServer/1",
+            "ZONEDESC"
+        )
+        flu_lookup = fetch_coded_values(
+            "https://egis.pinellas.gov/gis/rest/services/PublicWebGIS/Landuse_Zoning/MapServer/0",
+            "LANDUSEDESC"
+        )
+        
+        # Fallback to hardcoded if fetch failed
+        if not zoning_lookup:
+            zoning_lookup = UNINCORPORATED_ZONING_DESCRIPTIONS
+        if not flu_lookup:
+            flu_lookup = UNINCORPORATED_FLU_DESCRIPTIONS
+        
         # Step 1: Geocode the address
         search_url = "https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates"
         geocode_params = {
@@ -540,7 +660,7 @@ def lookup_unincorporated_zoning(address):
             'geometryType': 'esriGeometryPoint',
             'inSR': '4326',
             'spatialRel': 'esriSpatialRelIntersects',
-            'outFields': 'ZONEDESC',  # This field has the coded value domain
+            'outFields': 'ZONEDESC',
             'returnGeometry': 'false',
             'f': 'json'
         }
@@ -553,8 +673,8 @@ def lookup_unincorporated_zoning(address):
         if zoning_data.get('features'):
             zoning_attrs = zoning_data['features'][0]['attributes']
             zoning_code = zoning_attrs.get('ZONEDESC', '')  # This returns the CODE
-            # Look up the description from our dictionary
-            zoning_desc = UNINCORPORATED_ZONING_DESCRIPTIONS.get(zoning_code, '')
+            # Look up the description from fetched or fallback dictionary
+            zoning_desc = zoning_lookup.get(zoning_code, '')
         
         # Step 3: Query Future Land Use layer (Layer 0)
         flu_url = "https://egis.pinellas.gov/gis/rest/services/PublicWebGIS/Landuse_Zoning/MapServer/0/query"
@@ -575,8 +695,10 @@ def lookup_unincorporated_zoning(address):
         flu_desc = ''
         if flu_data.get('features'):
             flu_attrs = flu_data['features'][0]['attributes']
-            flu_code = flu_attrs.get('LANDUSECODE', '')
-            flu_desc = flu_attrs.get('LANDUSEDESC', '')
+            # Get the code from either field (they both return the code)
+            flu_code = flu_attrs.get('LANDUSECODE') or flu_attrs.get('LANDUSEDESC', '')
+            # Look up the description from fetched or fallback dictionary
+            flu_desc = flu_lookup.get(flu_code, '')
         
         return {
             'success': True,
