@@ -43,7 +43,12 @@ PINELLAS_CITY_MAP = {
     'INDIAN SHORES': 'Indian Shores',
     'NORTH REDINGTON BEACH': 'North Redington Beach',
     'OLDSMAR': 'Oldsmar',
-    'SAFETY HARBOR': 'Safety Harbor'
+    'SAFETY HARBOR': 'Safety Harbor',
+    # Unincorporated area codes
+    'LFPW': 'Unincorporated Pinellas (Lealman)',
+    'LEALMAN': 'Unincorporated Pinellas (Lealman)',
+    'UNINCORPORATED': 'Unincorporated Pinellas',
+    'COUNTY': 'Unincorporated Pinellas'
 }
 
 def expand_city_name(city_abbr):
@@ -331,13 +336,113 @@ def scrape_pinellas_property(parcel_id):
 # ST. PETERSBURG ZONING LAYER LOOKUP
 # ============================================================================
 
+def is_unincorporated(city_name):
+    """Check if city is unincorporated Pinellas."""
+    if not city_name:
+        return True
+    
+    unincorporated_indicators = [
+        'UNINCORPORATED',
+        'LFPW',  # Lealman area
+        'LEALMAN',
+        'COUNTY',
+        'PINELLAS COUNTY'
+    ]
+    
+    city_upper = city_name.upper()
+    return any(indicator in city_upper for indicator in unincorporated_indicators)
+
+def lookup_unincorporated_zoning(address):
+    """
+    Lookup zoning and FLU for unincorporated Pinellas County areas.
+    Uses Pinellas County AccelaReference layers.
+    
+    Returns: dict with zoning_code, future_land_use, descriptions
+    """
+    if not address:
+        return {'success': False, 'error': 'Address required for zoning lookup'}
+    
+    session = get_resilient_session()
+    
+    try:
+        # Step 1: Geocode the address
+        search_url = "https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates"
+        geocode_params = {
+            'SingleLine': f"{address}, Pinellas County, FL",
+            'f': 'json',
+            'outFields': '*'
+        }
+        
+        geocode_response = session.get(search_url, params=geocode_params, timeout=15)
+        geocode_data = geocode_response.json()
+        
+        if not geocode_data.get('candidates'):
+            return {'success': False, 'error': 'Could not geocode address'}
+        
+        # Get coordinates
+        location = geocode_data['candidates'][0]['location']
+        x, y = location['x'], location['y']
+        
+        # Step 2: Query Future Land Use layer (AccelaReference Layer 1)
+        flu_url = "https://egis.pinellas.gov/gis/rest/services/Accela/AccelaReference/MapServer/1/query"
+        flu_params = {
+            'geometry': f"{x},{y}",
+            'geometryType': 'esriGeometryPoint',
+            'inSR': '4326',
+            'spatialRel': 'esriSpatialRelIntersects',
+            'outFields': 'LANDUSECODE,LANDUSEDESC',
+            'returnGeometry': 'false',
+            'f': 'json'
+        }
+        
+        flu_response = session.get(flu_url, params=flu_params, timeout=15)
+        flu_data = flu_response.json()
+        
+        flu_code = ''
+        flu_desc = ''
+        if flu_data.get('features'):
+            flu_attrs = flu_data['features'][0]['attributes']
+            flu_code = flu_attrs.get('LANDUSECODE', '')
+            flu_desc = flu_attrs.get('LANDUSEDESC', '')
+        
+        # Step 3: Query Zoning from AccelaAddressParcel Layer 1
+        zoning_url = "https://egis.pinellas.gov/gis/rest/services/Accela/AccelaAddressParcel/MapServer/1/query"
+        zoning_params = {
+            'geometry': f"{x},{y}",
+            'geometryType': 'esriGeometryPoint',
+            'inSR': '4326',
+            'spatialRel': 'esriSpatialRelIntersects',
+            'outFields': 'ZONECLASS',
+            'returnGeometry': 'false',
+            'f': 'json'
+        }
+        
+        zoning_response = session.get(zoning_url, params=zoning_params, timeout=15)
+        zoning_data = zoning_response.json()
+        
+        zoning_code = ''
+        if zoning_data.get('features'):
+            zoning_attrs = zoning_data['features'][0]['attributes']
+            zoning_code = zoning_attrs.get('ZONECLASS', '')
+        
+        return {
+            'success': True,
+            'zoning_code': zoning_code,
+            'zoning_description': None,  # Unincorporated doesn't provide descriptions
+            'future_land_use': flu_code,
+            'future_land_use_description': flu_desc
+        }
+        
+    except Exception as e:
+        return {'success': False, 'error': f'Unincorporated zoning lookup error: {str(e)}'}
+
 def lookup_pinellas_zoning(city_name, address):
     """
-    Lookup zoning for Pinellas County using the property address.
-    For St. Petersburg: Queries St. Pete zoning layers using spatial query.
+    Router function: Lookup zoning for Pinellas County based on city.
+    Routes to appropriate lookup function based on jurisdiction.
     
     Args:
-        city_name: City name (e.g., "St. Petersburg")
+        city_name: City name (e.g., "St. Petersburg", "Lealman", "Clearwater")
         address: Property address (e.g., "200 CENTRAL AVE")
         
     Returns:
@@ -346,82 +451,109 @@ def lookup_pinellas_zoning(city_name, address):
     if not address:
         return {'success': False, 'error': 'Address required for zoning lookup'}
     
+    # Route based on jurisdiction
+    if 'St. Petersburg' in city_name or 'St Petersburg' in city_name:
+        # St. Petersburg has its own GIS layers
+        return lookup_stpete_zoning(address)
+    elif is_unincorporated(city_name):
+        # Unincorporated areas use Pinellas County layers
+        return lookup_unincorporated_zoning(address)
+    else:
+        # Other municipalities - not yet implemented
+        return {
+            'success': True,
+            'zoning_code': 'Contact City for zoning',
+            'zoning_description': None,
+            'future_land_use': None,
+            'future_land_use_description': None,
+            'note': f'City-specific zoning data for {city_name} not yet implemented'
+        }
+
+def lookup_stpete_zoning(address):
+    """
+    Lookup zoning for St. Petersburg properties using St. Pete GIS layers.
+    (Renamed from original lookup_pinellas_zoning St. Pete section)
+    
+    Args:
+        address: Property address (e.g., "200 CENTRAL AVE")
+        
+    Returns:
+        dict with zoning_code, zoning_description, future_land_use, future_land_use_description
+    """
     session = get_resilient_session()
     
-    # St. Petersburg zoning lookup
-    if 'St. Petersburg' in city_name or 'St Petersburg' in city_name:
-        try:
-            # Step 1: Geocode the address to get coordinates
-            search_url = "https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates"
-            geocode_params = {
-                'SingleLine': f"{address}, St. Petersburg, FL",
-                'f': 'json',
-                'outFields': '*'
-            }
+    try:
+        # Step 1: Geocode the address to get coordinates
+        search_url = "https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates"
+        geocode_params = {
+            'SingleLine': f"{address}, St. Petersburg, FL",
+            'f': 'json',
+            'outFields': '*'
+        }
+        
+        geocode_response = session.get(search_url, params=geocode_params, timeout=15)
+        geocode_data = geocode_response.json()
+        
+        if not geocode_data.get('candidates'):
+            return {'success': False, 'error': 'Could not geocode address'}
+        
+        # Get coordinates from first candidate
+        location = geocode_data['candidates'][0]['location']
+        x, y = location['x'], location['y']
+        
+        # Step 2: Query zoning layer with coordinates (spatial query)
+        zoning_url = "https://egis.stpete.org/arcgis/rest/services/ServicesDSD/Zoning/MapServer/2/query"
+        zoning_params = {
+            'geometry': f"{x},{y}",
+            'geometryType': 'esriGeometryPoint',
+            'inSR': '4326',  # WGS84 from geocoder
+            'spatialRel': 'esriSpatialRelIntersects',
+            'outFields': 'ZONECLASS,ZONEDESC',
+            'returnGeometry': 'false',
+            'f': 'json'
+        }
+        
+        zoning_response = session.get(zoning_url, params=zoning_params, timeout=15)
+        zoning_data = zoning_response.json()
+        
+        if zoning_data.get('features'):
+            attrs = zoning_data['features'][0]['attributes']
+            zoning_code = attrs.get('ZONECLASS', '')
+            zoning_desc = ZONING_DESCRIPTIONS.get(zoning_code, attrs.get('ZONEDESC', ''))
             
-            geocode_response = session.get(search_url, params=geocode_params, timeout=15)
-            geocode_data = geocode_response.json()
-            
-            if not geocode_data.get('candidates'):
-                return {'success': False, 'error': 'Could not geocode address'}
-            
-            # Get coordinates from first candidate
-            location = geocode_data['candidates'][0]['location']
-            x, y = location['x'], location['y']
-            
-            # Step 2: Query zoning layer with coordinates (spatial query)
-            zoning_url = "https://egis.stpete.org/arcgis/rest/services/ServicesDSD/Zoning/MapServer/2/query"
-            zoning_params = {
+            # Step 3: Query Future Land Use layer with same coordinates
+            flu_url = "https://egis.stpete.org/arcgis/rest/services/ServicesDSD/Zoning/MapServer/4/query"
+            flu_params = {
                 'geometry': f"{x},{y}",
                 'geometryType': 'esriGeometryPoint',
-                'inSR': '4326',  # WGS84 from geocoder
+                'inSR': '4326',
                 'spatialRel': 'esriSpatialRelIntersects',
-                'outFields': 'ZONECLASS,ZONEDESC',
+                'outFields': '*',
                 'returnGeometry': 'false',
                 'f': 'json'
             }
             
-            zoning_response = session.get(zoning_url, params=zoning_params, timeout=15)
-            zoning_data = zoning_response.json()
+            flu_response = session.get(flu_url, params=flu_params, timeout=15)
+            flu_data = flu_response.json()
+            flu_code = ''
+            flu_desc = ''
+            if flu_data.get('features'):
+                flu_attrs = flu_data['features'][0].get('attributes', {})
+                flu_code = flu_attrs.get('LANDUSECODE', '')
+                flu_desc = FLU_DESCRIPTIONS.get(flu_code, '')
             
-            if zoning_data.get('features'):
-                attrs = zoning_data['features'][0]['attributes']
-                zoning_code = attrs.get('ZONECLASS', '')
-                zoning_desc = ZONING_DESCRIPTIONS.get(zoning_code, attrs.get('ZONEDESC', ''))
-                
-                # Step 3: Query Future Land Use layer with same coordinates
-                flu_url = "https://egis.stpete.org/arcgis/rest/services/ServicesDSD/Zoning/MapServer/4/query"
-                flu_params = {
-                    'geometry': f"{x},{y}",
-                    'geometryType': 'esriGeometryPoint',
-                    'inSR': '4326',
-                    'spatialRel': 'esriSpatialRelIntersects',
-                    'outFields': '*',
-                    'returnGeometry': 'false',
-                    'f': 'json'
-                }
-                
-                flu_response = session.get(flu_url, params=flu_params, timeout=15)
-                flu_data = flu_response.json()
-                flu_code = ''
-                flu_desc = ''
-                if flu_data.get('features'):
-                    flu_attrs = flu_data['features'][0].get('attributes', {})
-                    flu_code = flu_attrs.get('LANDUSECODE', '')
-                    flu_desc = FLU_DESCRIPTIONS.get(flu_code, '')
-                
-                return {
-                    'success': True,
-                    'zoning_code': zoning_code,
-                    'zoning_description': zoning_desc,
-                    'future_land_use': flu_code,
-                    'future_land_use_description': flu_desc
-                }
-            else:
-                return {'success': False, 'error': 'No zoning found at address location'}
-                
-        except Exception as e:
-            return {'success': False, 'error': f'Zoning lookup error: {str(e)}'}
+            return {
+                'success': True,
+                'zoning_code': zoning_code,
+                'zoning_description': zoning_desc,
+                'future_land_use': flu_code,
+                'future_land_use_description': flu_desc
+            }
+        else:
+            return {'success': False, 'error': 'No zoning found at address location'}
+            
+    except Exception as e:
+        return {'success': False, 'error': f'St. Pete zoning lookup error: {str(e)}'}
     
     # Other cities (not St. Petersburg)
     return {
@@ -483,7 +615,7 @@ if st.button("🔍 Lookup Property Info", type="primary"):
 
 # Second button for zoning/FLU lookup (always show after parcel ID entered)
 st.markdown("---")
-st.caption("🔍 **For St. Petersburg properties:** Lookup detailed zoning and Future Land Use from GIS layers")
+st.caption("🔍 **For Pinellas County properties:** Lookup detailed zoning and Future Land Use from GIS layers (St. Petersburg and unincorporated areas)")
 
 if st.button("🗺️ Lookup Zoning & Future Land Use", type="secondary"):
     city = st.session_state.get('api_city', '')
@@ -510,13 +642,17 @@ if st.button("🗺️ Lookup Zoning & Future Land Use", type="secondary"):
                     else:
                         st.session_state['api_flu'] = zoning_result.get('future_land_use', '')
                 
-                st.success(f"✅ Zoning data updated!")
+                # Show which jurisdiction was queried
+                if 'St. Petersburg' in city or 'St Petersburg' in city:
+                    st.success(f"✅ Zoning data updated from St. Petersburg GIS layers!")
+                elif 'Unincorporated' in city:
+                    st.success(f"✅ Zoning data updated from Pinellas County (unincorporated) layers!")
+                else:
+                    st.success(f"✅ Zoning data updated!")
+                
                 st.rerun()
             else:
-                if 'St. Petersburg' in city or 'St Petersburg' in city:
-                    st.error(f"❌ {zoning_result.get('error', 'Unable to fetch zoning data')}")
-                else:
-                    st.info(f"ℹ️ City-specific zoning data not available via API for {city}")
+                st.error(f"❌ {zoning_result.get('error', 'Unable to fetch zoning data')}")
 
 st.markdown("---")
 
