@@ -273,6 +273,7 @@ def scrape_pinellas_property(parcel_id):
         # Get acreage from detail page
         sqft = None
         acres = None
+        zip_code = None
         
         try:
             # Strap transformation: swap first and third segments
@@ -301,14 +302,19 @@ def scrape_pinellas_property(parcel_id):
             if m:
                 sqft = int(m.group(1).replace(",", ""))
                 acres = float(m.group(2))
+            
+            # Extract ZIP code from detail page (format: "FL 33703" or "FL33703")
+            zip_match = re.search(r'FL\s*(\d{5})', text)
+            if zip_match:
+                zip_code = zip_match.group(1)
         except Exception:
-            pass  # If detail page fails, sqft and acres remain None
+            pass  # If detail page fails, sqft, acres, and zip_code remain None
         
         return {
             'success': True,
             'address': address,
             'city': city,
-            'zip': '',
+            'zip': zip_code or '',
             'owner': owner,
             'land_use': strip_dor_code(property_use),
             'zoning': 'Contact City/County for zoning info',
