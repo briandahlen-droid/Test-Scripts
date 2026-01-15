@@ -12,6 +12,49 @@ from urllib3.util.retry import Retry
 st.set_page_config(page_title="Pinellas Property Lookup Test", page_icon="🏠", layout="wide")
 
 # ============================================================================
+# PINELLAS CITY NAME MAPPING
+# ============================================================================
+
+# Map Pinellas County tax district codes to full city names
+PINELLAS_CITY_MAP = {
+    'SP': 'St. Petersburg',
+    'ST PETERSBURG': 'St. Petersburg',
+    'ST. PETERSBURG': 'St. Petersburg',
+    'CLEARWATER': 'Clearwater',
+    'CW': 'Clearwater',
+    'LARGO': 'Largo',
+    'PINELLAS PARK': 'Pinellas Park',
+    'PP': 'Pinellas Park',
+    'DUNEDIN': 'Dunedin',
+    'TARPON SPRINGS': 'Tarpon Springs',
+    'TS': 'Tarpon Springs',
+    'SEMINOLE': 'Seminole',
+    'KENNETH CITY': 'Kenneth City',
+    'GULFPORT': 'Gulfport',
+    'MADEIRA BEACH': 'Madeira Beach',
+    'REDINGTON BEACH': 'Redington Beach',
+    'TREASURE ISLAND': 'Treasure Island',
+    'ST PETE BEACH': 'St. Pete Beach',
+    'SOUTH PASADENA': 'South Pasadena',
+    'BELLEAIR': 'Belleair',
+    'BELLEAIR BEACH': 'Belleair Beach',
+    'BELLEAIR BLUFFS': 'Belleair Bluffs',
+    'INDIAN ROCKS BEACH': 'Indian Rocks Beach',
+    'INDIAN SHORES': 'Indian Shores',
+    'NORTH REDINGTON BEACH': 'North Redington Beach',
+    'OLDSMAR': 'Oldsmar',
+    'SAFETY HARBOR': 'Safety Harbor'
+}
+
+def expand_city_name(city_abbr):
+    """Expand Pinellas city abbreviation to full name."""
+    if not city_abbr:
+        return 'Unincorporated Pinellas'
+    
+    city_upper = city_abbr.strip().upper()
+    return PINELLAS_CITY_MAP.get(city_upper, city_abbr)
+
+# ============================================================================
 # ST. PETERSBURG ZONING/FLU LOOKUP TABLES
 # ============================================================================
 
@@ -209,10 +252,13 @@ def scrape_pinellas_property(parcel_id):
         address_soup = BeautifulSoup(address_html, 'lxml')
         address = address_soup.get_text(strip=True)
         
-        # Column 6: Current Tax District (this IS the city)
+        # Column 6: Current Tax District (this IS the city, but may be abbreviated)
         tax_dist_html = result_row[6] if len(result_row) > 6 else ''
         tax_dist_soup = BeautifulSoup(tax_dist_html, 'lxml')
-        city = tax_dist_soup.get_text(strip=True)  # Use tax district directly as city
+        tax_district = tax_dist_soup.get_text(strip=True)
+        
+        # Expand abbreviated city name (e.g., "SP" -> "St. Petersburg")
+        city = expand_city_name(tax_district)
         
         # Column 7: Property Use / DOR Code
         use_html = result_row[7] if len(result_row) > 7 else ''
@@ -429,43 +475,42 @@ if st.button("🔍 Lookup Property Info", type="primary"):
                 else:
                     st.error(f"❌ {result['error']}")
 
-# Second button for zoning/FLU lookup (for St. Petersburg only)
-if st.session_state.get('api_address'):
-    st.markdown("---")
-    st.caption("🔍 **Optional:** For St. Petersburg properties, lookup detailed zoning and Future Land Use from GIS layers")
+# Second button for zoning/FLU lookup (always show after parcel ID entered)
+st.markdown("---")
+st.caption("🔍 **For St. Petersburg properties:** Lookup detailed zoning and Future Land Use from GIS layers")
+
+if st.button("🗺️ Lookup Zoning & Future Land Use", type="secondary"):
+    city = st.session_state.get('api_city', '')
+    address = st.session_state.get('api_address', '')
     
-    if st.button("🗺️ Lookup Zoning & Future Land Use", type="secondary"):
-        city = st.session_state.get('api_city', '')
-        address = st.session_state.get('api_address', '')
-        
-        if not address:
-            st.error("❌ Please run Property Lookup first to get the address")
-        else:
-            with st.spinner(f"Fetching zoning data for {address} in {city}..."):
-                zoning_result = lookup_pinellas_zoning(city, address)
-                
-                if zoning_result.get('success'):
-                    # Update zoning with detailed info
-                    if zoning_result.get('zoning_code'):
-                        if zoning_result.get('zoning_description'):
-                            st.session_state['api_zoning'] = f"{zoning_result.get('zoning_code')} - {zoning_result.get('zoning_description')}"
-                        else:
-                            st.session_state['api_zoning'] = zoning_result.get('zoning_code', '')
-                    
-                    # Update FLU
-                    if zoning_result.get('future_land_use'):
-                        if zoning_result.get('future_land_use_description'):
-                            st.session_state['api_flu'] = f"{zoning_result.get('future_land_use')} - {zoning_result.get('future_land_use_description')}"
-                        else:
-                            st.session_state['api_flu'] = zoning_result.get('future_land_use', '')
-                    
-                    st.success(f"✅ Zoning data updated!")
-                    st.rerun()
-                else:
-                    if 'St. Petersburg' in city or 'St Petersburg' in city:
-                        st.error(f"❌ {zoning_result.get('error', 'Unable to fetch zoning data')}")
+    if not address:
+        st.error("❌ Please run Property Lookup first to get the address")
+    else:
+        with st.spinner(f"Fetching zoning data for {address} in {city}..."):
+            zoning_result = lookup_pinellas_zoning(city, address)
+            
+            if zoning_result.get('success'):
+                # Update zoning with detailed info
+                if zoning_result.get('zoning_code'):
+                    if zoning_result.get('zoning_description'):
+                        st.session_state['api_zoning'] = f"{zoning_result.get('zoning_code')} - {zoning_result.get('zoning_description')}"
                     else:
-                        st.info(f"ℹ️ City-specific zoning data not available via API for {city}")
+                        st.session_state['api_zoning'] = zoning_result.get('zoning_code', '')
+                
+                # Update FLU
+                if zoning_result.get('future_land_use'):
+                    if zoning_result.get('future_land_use_description'):
+                        st.session_state['api_flu'] = f"{zoning_result.get('future_land_use')} - {zoning_result.get('future_land_use_description')}"
+                    else:
+                        st.session_state['api_flu'] = zoning_result.get('future_land_use', '')
+                
+                st.success(f"✅ Zoning data updated!")
+                st.rerun()
+            else:
+                if 'St. Petersburg' in city or 'St Petersburg' in city:
+                    st.error(f"❌ {zoning_result.get('error', 'Unable to fetch zoning data')}")
+                else:
+                    st.info(f"ℹ️ City-specific zoning data not available via API for {city}")
 
 st.markdown("---")
 
