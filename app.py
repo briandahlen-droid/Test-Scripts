@@ -765,29 +765,56 @@ def lookup_clearwater_zoning(address):
             zoning_code = zoning_attrs.get('ZONING', '')
             zoning_desc = zoning_attrs.get('ZONING_DESC', '')
         
-        # Step 3: Query Future Land Use layer
-        # Try layer 0 first (common pattern)
-        flu_url = "https://gis.myclearwater.com/arcgis/rest/services/ArcGISMapServices/FLU_w_PPC_Colors_WGS84/MapServer/0/query"
-        flu_params = {
-            'geometry': f"{x},{y}",
-            'geometryType': 'esriGeometryPoint',
-            'inSR': '4326',
-            'spatialRel': 'esriSpatialRelIntersects',
-            'outFields': '*',  # Get all fields to see what's available
-            'returnGeometry': 'false',
-            'f': 'json'
-        }
-        
-        flu_response = session.get(flu_url, params=flu_params, timeout=15)
-        flu_data = flu_response.json()
-        
+        # Step 3: Query Future Land Use layer (try both layer 0 and 1)
         flu_code = ''
         flu_desc = ''
-        if flu_data.get('features'):
-            flu_attrs = flu_data['features'][0]['attributes']
-            # Try common field names
-            flu_code = flu_attrs.get('FLU') or flu_attrs.get('LANDUSE') or flu_attrs.get('FUTURE_LAND_USE') or ''
-            flu_desc = flu_attrs.get('FLU_DESC') or flu_attrs.get('LANDUSE_DESC') or flu_attrs.get('DESCRIPTION') or ''
+        
+        for layer_id in [0, 1]:
+            flu_url = f"https://gis.myclearwater.com/arcgis/rest/services/ArcGISMapServices/FLU_w_PPC_Colors_WGS84/MapServer/{layer_id}/query"
+            flu_params = {
+                'geometry': f"{x},{y}",
+                'geometryType': 'esriGeometryPoint',
+                'inSR': '4326',
+                'spatialRel': 'esriSpatialRelIntersects',
+                'outFields': '*',  # Get all fields
+                'returnGeometry': 'false',
+                'f': 'json'
+            }
+            
+            flu_response = session.get(flu_url, params=flu_params, timeout=15)
+            flu_data = flu_response.json()
+            
+            if flu_data.get('features'):
+                flu_attrs = flu_data['features'][0]['attributes']
+                
+                # Try many possible field name combinations
+                for code_field in ['FLU', 'FLUM', 'LANDUSE', 'LAND_USE', 'FUTURE_LAND_USE', 'FLU_CODE', 'LANDUSECODE']:
+                    if code_field in flu_attrs and flu_attrs[code_field]:
+                        flu_code = flu_attrs[code_field]
+                        break
+                
+                for desc_field in ['FLU_DESC', 'FLUM_DESC', 'LANDUSE_DESC', 'LAND_USE_DESC', 'DESCRIPTION', 'FLU_DESCRIPTION', 'LANDUSEDESC']:
+                    if desc_field in flu_attrs and flu_attrs[desc_field]:
+                        flu_desc = flu_attrs[desc_field]
+                        break
+                
+                # If we still don't have both, check for combined field
+                if not flu_code or not flu_desc:
+                    for combined_field in ['Countywide_Plan_Map_Category_1', 'FLU_CATEGORY', 'CATEGORY']:
+                        if combined_field in flu_attrs and flu_attrs[combined_field]:
+                            combined_value = flu_attrs[combined_field]
+                            # Return combined value for both code and desc
+                            return {
+                                'success': True,
+                                'zoning_code': zoning_code,
+                                'zoning_description': zoning_desc,
+                                'future_land_use': combined_value,
+                                'future_land_use_description': None
+                            }
+                
+                # If we found something in this layer, stop trying other layers
+                if flu_code:
+                    break
         
         return {
             'success': True,
@@ -804,37 +831,74 @@ def lookup_largo_zoning(address, parcel_data=None):
     """
     Lookup zoning and FLU for Largo properties.
     Largo uses Future Land Use classification instead of traditional zoning.
-    Data comes from parcel lookup, not spatial query.
+    Queries Largo's parcel layer for Countywide_Plan_Map_Category_1.
     
     Args:
-        address: Property address (for geocoding if needed)
-        parcel_data: Parcel data from PCPAO lookup (preferred source)
+        address: Property address
+        parcel_data: Not used (kept for compatibility)
     
     Returns: dict with zoning_code, future_land_use, descriptions
     """
-    # Largo doesn't use traditional zoning - they use Future Land Use for everything
-    # This data is already in the parcel lookup via PCPAO
+    if not address:
+        return {'success': False, 'error': 'Address required'}
     
-    if parcel_data and parcel_data.get('countywide_plan_category'):
-        # Already have the data from parcel lookup
-        flu_value = parcel_data['countywide_plan_category']  # e.g., "RLM - RESIDENTIAL LOW MEDIUM"
+    session = get_resilient_session()
+    
+    try:
+        # Step 1: Geocode the address
+        search_url = "https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates"
+        geocode_params = {
+            'SingleLine': f"{address}, Largo, FL",
+            'f': 'json',
+            'outFields': '*'
+        }
         
-        return {
-            'success': True,
-            'zoning_code': flu_value,  # Largo uses FLU as zoning
-            'zoning_description': None,  # Already combined in flu_value
-            'future_land_use': flu_value,  # Same as zoning for Largo
-            'future_land_use_description': None  # Already combined
+        geocode_response = session.get(search_url, params=geocode_params, timeout=15)
+        geocode_data = geocode_response.json()
+        
+        if not geocode_data.get('candidates'):
+            return {'success': False, 'error': 'Could not geocode address'}
+        
+        # Get coordinates
+        location = geocode_data['candidates'][0]['location']
+        x, y = location['x'], location['y']
+        
+        # Step 2: Query Largo parcel layer for Countywide Plan category
+        parcel_url = "https://maps.largo.com/arcgis/rest/services/Largo_GIS_Viewer_Map/MapServer/247/query"
+        parcel_params = {
+            'geometry': f"{x},{y}",
+            'geometryType': 'esriGeometryPoint',
+            'inSR': '4326',
+            'spatialRel': 'esriSpatialRelIntersects',
+            'outFields': 'Countywide_Plan_Map_Category_1',
+            'returnGeometry': 'false',
+            'f': 'json'
         }
-    else:
-        # Note for user
-        return {
-            'success': True,
-            'zoning_code': 'See Future Land Use',
-            'zoning_description': 'Largo uses FLU classification instead of traditional zoning',
-            'future_land_use': 'Available in parcel data',
-            'future_land_use_description': 'Run property lookup to get FLU classification'
-        }
+        
+        parcel_response = session.get(parcel_url, params=parcel_params, timeout=15)
+        parcel_data_result = parcel_response.json()
+        
+        flu_value = ''
+        if parcel_data_result.get('features'):
+            attrs = parcel_data_result['features'][0]['attributes']
+            flu_value = attrs.get('Countywide_Plan_Map_Category_1', '')
+        
+        if flu_value:
+            return {
+                'success': True,
+                'zoning_code': flu_value,  # Largo uses FLU as zoning
+                'zoning_description': None,  # Already combined in flu_value
+                'future_land_use': flu_value,  # Same as zoning for Largo
+                'future_land_use_description': None  # Already combined
+            }
+        else:
+            return {
+                'success': False,
+                'error': 'Could not retrieve Countywide Plan category from Largo parcel layer'
+            }
+        
+    except Exception as e:
+        return {'success': False, 'error': f'Largo lookup error: {str(e)}'}
 
 def lookup_pinellas_zoning(city_name, address, parcel_data=None):
     """
@@ -1043,9 +1107,12 @@ if st.button("🗺️ Lookup Zoning & Future Land Use", type="secondary"):
                 
                 # Update FLU
                 if zoning_result.get('future_land_use'):
+                    # Check if description is separate or combined
                     if zoning_result.get('future_land_use_description'):
+                        # Separate code and description
                         st.session_state['api_flu'] = f"{zoning_result.get('future_land_use')} - {zoning_result.get('future_land_use_description')}"
                     else:
+                        # Already combined (like Largo) or just code
                         st.session_state['api_flu'] = zoning_result.get('future_land_use', '')
                 
                 # Show which jurisdiction was queried
