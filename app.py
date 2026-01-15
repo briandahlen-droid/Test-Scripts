@@ -23,6 +23,7 @@ PINELLAS_CITY_MAP = {
     'CLEARWATER': 'Clearwater',
     'CW': 'Clearwater',
     'LARGO': 'Largo',
+    'LA': 'Largo',
     'PINELLAS PARK': 'Pinellas Park',
     'PP': 'Pinellas Park',
     'DUNEDIN': 'Dunedin',
@@ -711,14 +712,139 @@ def lookup_unincorporated_zoning(address):
     except Exception as e:
         return {'success': False, 'error': f'Unincorporated zoning lookup error: {str(e)}'}
 
-def lookup_pinellas_zoning(city_name, address):
+def lookup_clearwater_zoning(address):
+    """
+    Lookup zoning and FLU for Clearwater properties.
+    Uses Clearwater's own GIS services.
+    
+    Returns: dict with zoning_code, zoning_description, future_land_use, future_land_use_description
+    """
+    if not address:
+        return {'success': False, 'error': 'Address required for zoning lookup'}
+    
+    session = get_resilient_session()
+    
+    try:
+        # Step 1: Geocode the address
+        search_url = "https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates"
+        geocode_params = {
+            'SingleLine': f"{address}, Clearwater, FL",
+            'f': 'json',
+            'outFields': '*'
+        }
+        
+        geocode_response = session.get(search_url, params=geocode_params, timeout=15)
+        geocode_data = geocode_response.json()
+        
+        if not geocode_data.get('candidates'):
+            return {'success': False, 'error': 'Could not geocode address'}
+        
+        # Get coordinates
+        location = geocode_data['candidates'][0]['location']
+        x, y = location['x'], location['y']
+        
+        # Step 2: Query Zoning layer
+        zoning_url = "https://gis.myclearwater.com/arcgis/rest/services/ArcGISMapServices/Zoning_WGS84/MapServer/1/query"
+        zoning_params = {
+            'geometry': f"{x},{y}",
+            'geometryType': 'esriGeometryPoint',
+            'inSR': '4326',
+            'spatialRel': 'esriSpatialRelIntersects',
+            'outFields': 'ZONING,ZONING_DESC',
+            'returnGeometry': 'false',
+            'f': 'json'
+        }
+        
+        zoning_response = session.get(zoning_url, params=zoning_params, timeout=15)
+        zoning_data = zoning_response.json()
+        
+        zoning_code = ''
+        zoning_desc = ''
+        if zoning_data.get('features'):
+            zoning_attrs = zoning_data['features'][0]['attributes']
+            zoning_code = zoning_attrs.get('ZONING', '')
+            zoning_desc = zoning_attrs.get('ZONING_DESC', '')
+        
+        # Step 3: Query Future Land Use layer
+        # Try layer 0 first (common pattern)
+        flu_url = "https://gis.myclearwater.com/arcgis/rest/services/ArcGISMapServices/FLU_w_PPC_Colors_WGS84/MapServer/0/query"
+        flu_params = {
+            'geometry': f"{x},{y}",
+            'geometryType': 'esriGeometryPoint',
+            'inSR': '4326',
+            'spatialRel': 'esriSpatialRelIntersects',
+            'outFields': '*',  # Get all fields to see what's available
+            'returnGeometry': 'false',
+            'f': 'json'
+        }
+        
+        flu_response = session.get(flu_url, params=flu_params, timeout=15)
+        flu_data = flu_response.json()
+        
+        flu_code = ''
+        flu_desc = ''
+        if flu_data.get('features'):
+            flu_attrs = flu_data['features'][0]['attributes']
+            # Try common field names
+            flu_code = flu_attrs.get('FLU') or flu_attrs.get('LANDUSE') or flu_attrs.get('FUTURE_LAND_USE') or ''
+            flu_desc = flu_attrs.get('FLU_DESC') or flu_attrs.get('LANDUSE_DESC') or flu_attrs.get('DESCRIPTION') or ''
+        
+        return {
+            'success': True,
+            'zoning_code': zoning_code,
+            'zoning_description': zoning_desc,
+            'future_land_use': flu_code,
+            'future_land_use_description': flu_desc
+        }
+        
+    except Exception as e:
+        return {'success': False, 'error': f'Clearwater zoning lookup error: {str(e)}'}
+
+def lookup_largo_zoning(address, parcel_data=None):
+    """
+    Lookup zoning and FLU for Largo properties.
+    Largo uses Future Land Use classification instead of traditional zoning.
+    Data comes from parcel lookup, not spatial query.
+    
+    Args:
+        address: Property address (for geocoding if needed)
+        parcel_data: Parcel data from PCPAO lookup (preferred source)
+    
+    Returns: dict with zoning_code, future_land_use, descriptions
+    """
+    # Largo doesn't use traditional zoning - they use Future Land Use for everything
+    # This data is already in the parcel lookup via PCPAO
+    
+    if parcel_data and parcel_data.get('countywide_plan_category'):
+        # Already have the data from parcel lookup
+        flu_value = parcel_data['countywide_plan_category']  # e.g., "RLM - RESIDENTIAL LOW MEDIUM"
+        
+        return {
+            'success': True,
+            'zoning_code': flu_value,  # Largo uses FLU as zoning
+            'zoning_description': None,  # Already combined in flu_value
+            'future_land_use': flu_value,  # Same as zoning for Largo
+            'future_land_use_description': None  # Already combined
+        }
+    else:
+        # Note for user
+        return {
+            'success': True,
+            'zoning_code': 'See Future Land Use',
+            'zoning_description': 'Largo uses FLU classification instead of traditional zoning',
+            'future_land_use': 'Available in parcel data',
+            'future_land_use_description': 'Run property lookup to get FLU classification'
+        }
+
+def lookup_pinellas_zoning(city_name, address, parcel_data=None):
     """
     Router function: Lookup zoning for Pinellas County based on city.
     Routes to appropriate lookup function based on jurisdiction.
     
     Args:
-        city_name: City name (e.g., "St. Petersburg", "Lealman", "Clearwater")
+        city_name: City name (e.g., "St. Petersburg", "Lealman", "Clearwater", "Largo")
         address: Property address (e.g., "200 CENTRAL AVE")
+        parcel_data: Optional parcel data from PCPAO lookup (used for Largo)
         
     Returns:
         dict with zoning_code, zoning_description, future_land_use, future_land_use_description
@@ -730,6 +856,12 @@ def lookup_pinellas_zoning(city_name, address):
     if 'St. Petersburg' in city_name or 'St Petersburg' in city_name:
         # St. Petersburg has its own GIS layers
         return lookup_stpete_zoning(address)
+    elif 'Clearwater' in city_name:
+        # Clearwater has its own GIS services
+        return lookup_clearwater_zoning(address)
+    elif 'Largo' in city_name:
+        # Largo uses FLU instead of traditional zoning
+        return lookup_largo_zoning(address, parcel_data)
     elif is_unincorporated(city_name):
         # Unincorporated areas use Pinellas County layers
         return lookup_unincorporated_zoning(address)
@@ -852,7 +984,6 @@ st.markdown("---")
 st.subheader("Input")
 parcel_id_input = st.text_input(
     "Parcel ID",
-    value="19-31-17-73166-001-0010",
     placeholder="e.g., 19-31-17-73166-001-0010",
     help="Pinellas County parcel ID with dashes",
     key="parcel_input"
@@ -890,7 +1021,7 @@ if st.button("🔍 Lookup Property Info", type="primary"):
 
 # Second button for zoning/FLU lookup (always show after parcel ID entered)
 st.markdown("---")
-st.caption("🔍 **For Pinellas County properties:** Lookup detailed zoning and Future Land Use from GIS layers (St. Petersburg and unincorporated areas)")
+st.caption("🔍 **For Pinellas County properties:** Lookup detailed zoning and Future Land Use from GIS layers (St. Petersburg, Clearwater, Largo, and unincorporated areas)")
 
 if st.button("🗺️ Lookup Zoning & Future Land Use", type="secondary"):
     city = st.session_state.get('api_city', '')
@@ -920,6 +1051,10 @@ if st.button("🗺️ Lookup Zoning & Future Land Use", type="secondary"):
                 # Show which jurisdiction was queried
                 if 'St. Petersburg' in city or 'St Petersburg' in city:
                     st.success(f"✅ Zoning data updated from St. Petersburg GIS layers!")
+                elif 'Clearwater' in city:
+                    st.success(f"✅ Zoning data updated from Clearwater GIS layers!")
+                elif 'Largo' in city:
+                    st.success(f"✅ Zoning/FLU data updated (Largo uses Future Land Use classification)!")
                 elif 'Unincorporated' in city:
                     st.success(f"✅ Zoning data updated from Pinellas County (unincorporated) layers!")
                 else:
