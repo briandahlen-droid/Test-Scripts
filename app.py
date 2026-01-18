@@ -11,6 +11,101 @@ from urllib3.util.retry import Retry
 st.set_page_config(page_title="FL Property Lookup", page_icon="🏠", layout="wide")
 
 # ============================================================================
+# FLORIDA DOR LAND USE CODES
+# ============================================================================
+
+DOR_LAND_USE_CODES = {
+    # Residential (00-09)
+    '0000': 'Vacant Residential', '0001': 'Single Family', '0002': 'Mobile Homes',
+    '0003': 'Multi-Family (10+ units)', '0004': 'Condominiums', '0005': 'Cooperatives',
+    '0006': 'Retirement Homes', '0007': 'Miscellaneous Residential',
+    '0008': 'Multi-Family (Less than 10 units)', '0009': 'Residential Common Elements/Areas',
+    
+    # Commercial (10-39)
+    '0010': 'Vacant Commercial', '0011': 'Stores, One Story', '0012': 'Mixed Use Store/Office',
+    '0013': 'Department Stores', '0014': 'Supermarkets', '0015': 'Regional Shopping Centers',
+    '0016': 'Community Shopping Centers', '0017': 'Office Buildings, One Story',
+    '0018': 'Office Buildings, Multi-Story', '0019': 'Professional Service Buildings',
+    '0020': 'Airports, Terminals, Marinas', '0021': 'Restaurants, Cafeterias',
+    '0022': 'Drive-In Restaurants', '0023': 'Financial Institutions',
+    '0024': 'Insurance Company Offices', '0025': 'Repair Service Shops',
+    '0026': 'Service Stations', '0027': 'Auto Sales, Auto Repair',
+    '0028': 'Parking Lots, Mobile Home Parks', '0029': 'Wholesale Outlets',
+    '0030': 'Florists, Greenhouses', '0031': 'Drive-In Theaters',
+    '0032': 'Enclosed Theaters', '0033': 'Nightclubs, Bars',
+    '0034': 'Bowling Alleys, Skating Rinks', '0035': 'Tourist Attractions',
+    '0036': 'Camps', '0037': 'Race Tracks', '0038': 'Golf Courses', '0039': 'Hotels, Motels',
+    
+    # Industrial (40-49)
+    '0040': 'Vacant Industrial', '0041': 'Light Manufacturing', '0042': 'Heavy Industrial',
+    '0043': 'Lumber Yards, Sawmills', '0044': 'Packing Plants', '0045': 'Canneries, Bottlers',
+    '0046': 'Other Food Processing', '0047': 'Mineral Processing', '0048': 'Warehousing',
+    '0049': 'Open Storage',
+    
+    # Agricultural (50-69)
+    '0050': 'Improved Agricultural', '0051': 'Cropland Class I', '0052': 'Cropland Class II',
+    '0053': 'Cropland Class III', '0054': 'Timberland (Site Index 90+)',
+    '0055': 'Timberland (Site Index 80-89)', '0056': 'Timberland (Site Index 70-79)',
+    '0057': 'Timberland (Site Index 60-69)', '0058': 'Timberland (Site Index 50-59)',
+    '0059': 'Timberland (Unclassified)', '0060': 'Grazing Land Class I',
+    '0061': 'Grazing Land Class II', '0062': 'Grazing Land Class III',
+    '0063': 'Grazing Land Class IV', '0064': 'Grazing Land Class V',
+    '0065': 'Grazing Land Class VI', '0066': 'Orchard Groves, Citrus',
+    '0067': 'Poultry, Bees, Fish', '0068': 'Dairies, Feed Lots',
+    '0069': 'Ornamentals, Misc Agricultural',
+    
+    # Institutional (70-79)
+    '0070': 'Vacant Institutional', '0071': 'Churches', '0072': 'Private Schools/Colleges',
+    '0073': 'Private Hospitals', '0074': 'Homes for the Aged',
+    '0075': 'Non-Profit/Charitable', '0076': 'Mortuaries, Cemeteries',
+    '0077': 'Clubs, Lodges', '0078': 'Sanitariums, Convalescent Homes',
+    '0079': 'Cultural Organizations',
+    
+    # Governmental (80-89)
+    '0080': 'Vacant Governmental', '0081': 'Military', '0082': 'Forests, Parks, Recreational',
+    '0083': 'Public Schools', '0084': 'Colleges (Government)', '0085': 'Hospitals (Government)',
+    '0086': 'County Government', '0087': 'State Government', '0088': 'Federal Government',
+    '0089': 'Municipal Government',
+    
+    # Miscellaneous (90-99)
+    '0090': 'Leasehold Interests', '0091': 'Utility', '0092': 'Mining Lands',
+    '0093': 'Subsurface Rights', '0094': 'Right-of-Way', '0095': 'Rivers and Lakes',
+    '0096': 'Sewage Disposal, Waste Land', '0097': 'Outdoor Recreational',
+    '0098': 'Centrally Assessed', '0099': 'Acreage Not Zoned Agricultural',
+    
+    # Common 4-digit expanded codes
+    '8400': 'SCHOOLS/COLLEGE',
+    '8300': 'PUBLIC SCHOOLS',
+    '8500': 'HOSPITALS (GOVERNMENT)',
+}
+
+def get_land_use_description(code_or_desc):
+    """
+    Convert DOR land use code to description.
+    If already a description, return as-is.
+    """
+    if not code_or_desc:
+        return ''
+    
+    code_str = str(code_or_desc).strip()
+    
+    # If it's already a description (contains letters), return it
+    if any(c.isalpha() for c in code_str):
+        return code_str
+    
+    # Try exact match
+    if code_str in DOR_LAND_USE_CODES:
+        return DOR_LAND_USE_CODES[code_str]
+    
+    # Try with leading zeros (4-digit)
+    code_padded = code_str.zfill(4)
+    if code_padded in DOR_LAND_USE_CODES:
+        return DOR_LAND_USE_CODES[code_padded]
+    
+    # Return original if not found
+    return code_str
+
+# ============================================================================
 # PINELLAS COUNTY
 # ============================================================================
 
@@ -130,13 +225,20 @@ def lookup_hillsborough(folio):
         else:
             acres_str = ''
         
+        # Get land use - prefer description, fallback to code lookup
+        land_use_raw = attrs.get('PARUSEDESC', '')
+        if not land_use_raw:
+            # Try to get from DOR code
+            dor_code = attrs.get('DORUSECODE') or attrs.get('DOR4CODE')
+            land_use_raw = get_land_use_description(dor_code) if dor_code else ''
+        
         result = {
             'success': True,
             'address': attrs.get('SITEADD', attrs.get('SITUSADD1', '')),
             'city': attrs.get('SCITY', 'Tampa'),
             'zip': attrs.get('SZIP', ''),
             'owner': attrs.get('OWNNAME', attrs.get('OWNERNAME', '')),
-            'land_use': attrs.get('PARUSEDESC', ''),
+            'land_use': land_use_raw,
             'site_area_acres': acres_str,
             'site_area_sqft': '',
             'zoning': attrs.get('ZONING', ''),
@@ -146,10 +248,9 @@ def lookup_hillsborough(folio):
         # Query zoning and FLU layers with coordinates
         if x and y:
             try:
-                # Try querying zoning with the parcel's coordinate system first
-                zoning_url = "https://maps.hillsboroughcounty.org/arcgis/rest/services/DSD_Viewer_Services/DSD_Viewer_Zoning_Regulatory/FeatureServer/1/query"
+                # Query zoning layer (Layer ID 0, not 1!)
+                zoning_url = "https://maps.hillsboroughcounty.org/arcgis/rest/services/DSD_Viewer_Services/DSD_Viewer_Zoning_Regulatory/MapServer/0/query"
                 
-                # Try with original coordinates
                 zoning_params = {
                     'geometry': f'{x},{y}',
                     'geometryType': 'esriGeometryPoint',
@@ -157,7 +258,8 @@ def lookup_hillsborough(folio):
                     'outFields': 'NZONE,NZONE_DESC',
                     'returnGeometry': 'false',
                     'f': 'json',
-                    'inSR': '2882'  # Parcel layer spatial reference
+                    'inSR': '2882',  # Parcel layer spatial reference
+                    'outSR': '102100'  # Zoning layer spatial reference
                 }
                 
                 zoning_resp = requests.get(zoning_url, params=zoning_params, timeout=10)
