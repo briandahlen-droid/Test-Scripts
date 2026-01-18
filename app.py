@@ -281,19 +281,54 @@ def lookup_hillsborough_parcel(folio):
     except Exception as e:
         return {'success': False, 'error': str(e)}
 
+@st.cache_data(ttl=86400, show_spinner=False)
+def get_hillsborough_zoning_folio_field():
+    """
+    Query Hillsborough Zoning layer metadata to find the correct folio field name.
+    Cached for 24 hours since layer structure rarely changes.
+    
+    Returns: field name (str) or None if not found
+    """
+    try:
+        session = get_resilient_session()
+        metadata_url = "https://services.arcgis.com/apTfC6SUmnNfnxuF/arcgis/rest/services/Zoning/FeatureServer/0"
+        
+        response = session.get(metadata_url, params={'f': 'json'}, timeout=10)
+        metadata = response.json()
+        
+        # Common folio field name variations
+        folio_field_candidates = ['FOLIO', 'FOLIONUM', 'PARCEL_ID', 'FOLIO_ID', 'PARCELID']
+        
+        # Check which field exists in the layer
+        layer_fields = [field['name'].upper() for field in metadata.get('fields', [])]
+        
+        for candidate in folio_field_candidates:
+            if candidate in layer_fields:
+                st.write(f"DEBUG: Found folio field in layer metadata: {candidate}")
+                return candidate
+        
+        st.write("DEBUG: No folio field found in layer metadata")
+        return None
+        
+    except Exception as e:
+        st.write(f"DEBUG: Error fetching layer metadata: {e}")
+        return None
+
 def lookup_hillsborough_zoning_flu(address, folio=None, geometry=None):
     """Lookup Hillsborough zoning/FLU from GIS (secondary button)."""
     st.write(f"DEBUG: lookup_hillsborough_zoning_flu called with address: {address}, folio: {folio}")
     try:
+        if not folio:
+            return {'success': False, 'error': 'No folio provided for zoning lookup'}
+        
         result = {'success': True}
         
-        # Query Hillsborough County zoning by FOLIO (attribute query, not spatial)
-        st.write(f"DEBUG: Querying zoning by FOLIO: {folio}")
-        zoning_url = "https://services.arcgis.com/apTfC6SUmnNfnxuF/arcgis/rest/services/Zoning/FeatureServer/0/query"
+        # Get the correct folio field name from layer metadata
+        folio_field = get_hillsborough_zoning_folio_field()
         
-        # Build where clause - try common folio field names
-        if folio:
-            # Try different field name variations
+        if not folio_field:
+            st.warning("⚠️ Could not determine folio field name from layer metadata. Trying common variations...")
+            # Fallback to trying multiple field names
             where_clauses = [
                 f"FOLIO='{folio}'",
                 f"FOLIONUM='{folio}'",
@@ -302,7 +337,13 @@ def lookup_hillsborough_zoning_flu(address, folio=None, geometry=None):
             ]
             where_clause = " OR ".join(where_clauses)
         else:
-            return {'success': False, 'error': 'No folio provided for zoning lookup'}
+            # Use the correct field name found in metadata
+            where_clause = f"{folio_field}='{folio}'"
+            st.write(f"DEBUG: Using field '{folio_field}' for folio query")
+        
+        # Query Hillsborough County zoning by FOLIO (attribute query, not spatial)
+        st.write(f"DEBUG: Querying zoning with where clause: {where_clause}")
+        zoning_url = "https://services.arcgis.com/apTfC6SUmnNfnxuF/arcgis/rest/services/Zoning/FeatureServer/0/query"
         
         zoning_params = {
             'where': where_clause,
