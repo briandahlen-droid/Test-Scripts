@@ -253,10 +253,10 @@ def lookup_hillsborough_parcel(folio):
         attrs = parcel_data['features'][0]['attributes']
         acres = attrs.get('ACRES') or attrs.get('AREANO')
         acres_str = f"{float(acres):.2f}" if acres and acres not in [None, 'None', ''] else ''
-        land_use_raw = attrs.get('PARUSEDESC', '')
-        if not land_use_raw:
-            dor_code = attrs.get('DORUSECODE') or attrs.get('DOR4CODE')
-            land_use_raw = get_land_use_description(dor_code) if dor_code else ''
+        
+        # Always try DOR code first for full description
+        dor_code = attrs.get('DORUSECODE') or attrs.get('DOR4CODE')
+        land_use_desc = get_land_use_description(dor_code) if dor_code else attrs.get('PARUSEDESC', '')
         
         return {
             'success': True,
@@ -264,7 +264,7 @@ def lookup_hillsborough_parcel(folio):
             'city': attrs.get('SCITY', 'Tampa'),
             'zip': attrs.get('SZIP', ''),
             'owner': attrs.get('OWNNAME', attrs.get('OWNERNAME', '')),
-            'land_use': land_use_raw,
+            'land_use': land_use_desc,
             'site_area_acres': acres_str,
             'site_area_sqft': '',
             'zoning': attrs.get('ZONING', '')
@@ -276,7 +276,7 @@ def lookup_hillsborough_zoning_flu(address):
     """Lookup Hillsborough zoning/FLU from GIS (secondary button)."""
     try:
         geocode_url = "https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates"
-        geocode_params = {'SingleLine': address + ", Hillsborough County, FL", 'f': 'json', 'outSR': '102100', 'maxLocations': 1}
+        geocode_params = {'SingleLine': address + ", Hillsborough County, FL", 'f': 'json', 'outSR': '4326', 'maxLocations': 1}
         geocode_resp = requests.get(geocode_url, params=geocode_params, timeout=10)
         geocode_data = geocode_resp.json()
         if not geocode_data.get('candidates'):
@@ -285,8 +285,17 @@ def lookup_hillsborough_zoning_flu(address):
         x, y = location['x'], location['y']
         result = {'success': True}
         
+        # Query zoning layer - using lat/lon from geocoder
         zoning_url = "https://maps.hillsboroughcounty.org/arcgis/rest/services/DSD_Viewer_Services/DSD_Viewer_Zoning_Regulatory/MapServer/0/query"
-        zoning_params = {'geometry': f'{x},{y}', 'geometryType': 'esriGeometryPoint', 'spatialRel': 'esriSpatialRelIntersects', 'outFields': 'NZONE,NZONE_DESC', 'returnGeometry': 'false', 'f': 'json', 'inSR': '102100'}
+        zoning_params = {
+            'geometry': f'{x},{y}',
+            'geometryType': 'esriGeometryPoint',
+            'spatialRel': 'esriSpatialRelIntersects',
+            'outFields': 'NZONE,NZONE_DESC,CATEGORY',
+            'returnGeometry': 'false',
+            'f': 'json',
+            'inSR': '4326'  # Lat/lon from geocoder
+        }
         zoning_resp = requests.get(zoning_url, params=zoning_params, timeout=10)
         zoning_data = zoning_resp.json()
         if zoning_data.get('features'):
@@ -294,8 +303,17 @@ def lookup_hillsborough_zoning_flu(address):
             result['zoning_code'] = attrs.get('NZONE', '')
             result['zoning_description'] = attrs.get('NZONE_DESC', '')
         
+        # Query FLU layer
         flu_url = "https://maps.hillsboroughcounty.org/arcgis/rest/services/DSD_Viewer_Services/DSD_Viewer_Planning/MapServer/1/query"
-        flu_params = {'geometry': f'{x},{y}', 'geometryType': 'esriGeometryPoint', 'spatialRel': 'esriSpatialRelIntersects', 'outFields': 'FLUE', 'returnGeometry': 'false', 'f': 'json', 'inSR': '102100'}
+        flu_params = {
+            'geometry': f'{x},{y}',
+            'geometryType': 'esriGeometryPoint',
+            'spatialRel': 'esriSpatialRelIntersects',
+            'outFields': 'FLUE',
+            'returnGeometry': 'false',
+            'f': 'json',
+            'inSR': '4326'
+        }
         flu_resp = requests.get(flu_url, params=flu_params, timeout=10)
         flu_data = flu_resp.json()
         if flu_data.get('features'):
