@@ -123,6 +123,13 @@ def lookup_hillsborough(folio):
             x = geom.get('x', 0) if geom else 0
             y = geom.get('y', 0) if geom else 0
         
+        # Handle acres - try multiple fields and format properly
+        acres = attrs.get('ACRES') or attrs.get('AREANO')
+        if acres and acres not in [None, 'None', '']:
+            acres_str = f"{float(acres):.2f}" if isinstance(acres, (int, float)) else str(acres)
+        else:
+            acres_str = ''
+        
         result = {
             'success': True,
             'address': attrs.get('SITEADD', attrs.get('SITUSADD1', '')),
@@ -130,18 +137,19 @@ def lookup_hillsborough(folio):
             'zip': attrs.get('SZIP', ''),
             'owner': attrs.get('OWNNAME', attrs.get('OWNERNAME', '')),
             'land_use': attrs.get('PARUSEDESC', ''),
-            'site_area_acres': str(attrs.get('ACRES', attrs.get('AREANO', ''))),
+            'site_area_acres': acres_str,
             'site_area_sqft': '',
             'zoning': attrs.get('ZONING', ''),
             'flu': ''
         }
         
-        # Query zoning layer with coordinates (convert from 2882 to 102659)
-        # Note: May need coordinate transformation
+        # Query zoning and FLU layers with coordinates
         if x and y:
             try:
-                # Query Hillsborough zoning layer
+                # Try querying zoning with the parcel's coordinate system first
                 zoning_url = "https://maps.hillsboroughcounty.org/arcgis/rest/services/DSD_Viewer_Services/DSD_Viewer_Zoning_Regulatory/FeatureServer/1/query"
+                
+                # Try with original coordinates
                 zoning_params = {
                     'geometry': f'{x},{y}',
                     'geometryType': 'esriGeometryPoint',
@@ -149,8 +157,7 @@ def lookup_hillsborough(folio):
                     'outFields': 'NZONE,NZONE_DESC',
                     'returnGeometry': 'false',
                     'f': 'json',
-                    'inSR': '2882',  # Input spatial reference
-                    'outSR': '102659'
+                    'inSR': '2882'  # Parcel layer spatial reference
                 }
                 
                 zoning_resp = requests.get(zoning_url, params=zoning_params, timeout=10)
@@ -174,8 +181,7 @@ def lookup_hillsborough(folio):
                     'outFields': 'FLUE',
                     'returnGeometry': 'false',
                     'f': 'json',
-                    'inSR': '2882',
-                    'outSR': '102659'
+                    'inSR': '2882'
                 }
                 
                 flu_resp = requests.get(flu_url, params=flu_params, timeout=10)
