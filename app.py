@@ -1369,65 +1369,65 @@ with col_left:
     st.text_input(
         "City (auto-filled)",
         key='api_city',
-        placeholder="Will auto-fill from PCPAO",
-        help="City name from PCPAO API"
+        placeholder="Will auto-fill",
+        help="City name from Property Appraiser"
     )
     
     st.text_input(
         "Address (auto-filled)",
         key='api_address',
-        placeholder="Will auto-fill from PCPAO",
-        help="Property address from PCPAO API"
+        placeholder="Will auto-fill",
+        help="Property address from Property Appraiser"
     )
     
     st.text_input(
         "ZIP Code (auto-filled)",
         key='api_zip',
-        placeholder="Will auto-fill from PCPAO",
-        help="ZIP code from PCPAO API"
+        placeholder="Will auto-fill",
+        help="ZIP code from Property Appraiser"
     )
     
     st.text_input(
         "Property Use (auto-filled)",
         key='api_land_use',
-        placeholder="Will auto-fill from PCPAO",
-        help="Property Appraiser land use classification"
+        placeholder="Will auto-fill",
+        help="Property land use classification"
     )
 
 with col_right:
     st.text_input(
         "Owner (auto-filled)",
         key='api_owner',
-        placeholder="Will auto-fill from PCPAO",
-        help="Property owner from PCPAO API"
+        placeholder="Will auto-fill",
+        help="Property owner from Property Appraiser"
     )
     
     st.text_input(
         "Zoning (auto-filled)",
         key='api_zoning',
         placeholder="Will auto-fill from GIS layers",
-        help="Zoning district from St. Pete GIS layers"
+        help="Zoning district from county GIS layers"
     )
     
     st.text_input(
         "Future Land Use (auto-filled)",
         key='api_flu',
         placeholder="Will auto-fill from GIS layers",
-        help="Future Land Use from St. Pete GIS layers"
+        help="Future Land Use from county GIS layers"
     )
     
     st.text_input(
         "Land Area (acres)",
         key='land_area_acres',
-        placeholder="Will auto-fill from PCPAO",
-        help="Acreage from PCPAO website"
+        placeholder="Will auto-fill",
+        help="Acreage from Property Appraiser"
     )
 
 st.text_input(
     "Land Area (square feet)",
     key='land_area_sqft',
-    placeholder="Will auto-fill from PCPAO",
-    help="Square footage from PCPAO website"
+    placeholder="Will auto-fill (Pinellas only)",
+    help="Square footage from Property Appraiser"
 )
 
 # Summary
