@@ -300,13 +300,21 @@ def lookup_hillsborough_zoning_flu(address):
         tampa_zoning_resp = requests.get(tampa_zoning_url, params=tampa_zoning_params, timeout=10)
         tampa_zoning_data = tampa_zoning_resp.json()
         
-        # If found in Tampa, use Tampa zoning
-        if tampa_zoning_data.get('features'):
+        # Debug: Check if Tampa query returned anything
+        if 'error' in tampa_zoning_data:
+            # Tampa query had an error, try county
+            pass
+        elif tampa_zoning_data.get('features'):
+            # Found in Tampa
             attrs = tampa_zoning_data['features'][0]['attributes']
             result['zoning_code'] = attrs.get('ZONECLASS', '')
             result['zoning_description'] = attrs.get('ZONEDESC', '')
-        else:
-            # Fall back to Hillsborough County zoning
+            result['source'] = 'Tampa City'
+        
+        # If no Tampa zoning found, try Hillsborough County
+        if not result.get('zoning_code'):
+        # If no Tampa zoning found, try Hillsborough County
+        if not result.get('zoning_code'):
             county_zoning_url = "https://maps.hillsboroughcounty.org/arcgis/rest/services/DSD_Viewer_Services/DSD_Viewer_Zoning_Regulatory/FeatureServer/1/query"
             county_zoning_params = {
                 'geometry': f'{x},{y}',
@@ -323,6 +331,7 @@ def lookup_hillsborough_zoning_flu(address):
                 attrs = county_zoning_data['features'][0]['attributes']
                 result['zoning_code'] = attrs.get('NZONE', '')
                 result['zoning_description'] = attrs.get('NZONE_DESC', '')
+                result['source'] = 'Hillsborough County'
         
         # Query FLU layer (county-wide, includes Tampa)
         flu_url = "https://maps.hillsboroughcounty.org/arcgis/rest/services/DSD_Viewer_Services/DSD_Viewer_Planning/MapServer/1/query"
