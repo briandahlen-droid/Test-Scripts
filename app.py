@@ -1369,6 +1369,14 @@ if st.button("🗺️ Lookup Zoning & Future Land Use", type="secondary"):
                 zoning_result = lookup_hillsborough_zoning_flu(address)
                 
                 if zoning_result.get('success'):
+                    # Debug: Show what was found
+                    debug_msg = f"Retrieved: "
+                    if zoning_result.get('zoning_code'):
+                        debug_msg += f"Zoning={zoning_result.get('zoning_code')}"
+                    if zoning_result.get('future_land_use'):
+                        debug_msg += f", FLU={zoning_result.get('future_land_use')}"
+                    st.info(debug_msg)
+                    
                     # Update zoning
                     if zoning_result.get('zoning_code'):
                         if zoning_result.get('zoning_description'):
@@ -1380,7 +1388,7 @@ if st.button("🗺️ Lookup Zoning & Future Land Use", type="secondary"):
                     if zoning_result.get('future_land_use'):
                         st.session_state['api_flu'] = zoning_result.get('future_land_use', '')
                     
-                    st.success(f"✅ Zoning/FLU data updated from Hillsborough County GIS!")
+                    st.success(f"✅ Zoning/FLU data updated!")
                     st.rerun()
                 else:
                     st.error(f"❌ {zoning_result.get('error', 'Unable to fetch zoning data')}")
