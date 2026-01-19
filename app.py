@@ -1458,7 +1458,7 @@ if st.button("🔍 Lookup Property Info", type="primary"):
                         st.session_state['pasco_geometry'] = result.get('geometry')
                         
                         st.success("✅ Property data retrieved successfully!")
-                        st.rerun()
+                        # st.rerun()  # TEMPORARILY DISABLED TO SEE DEBUG OUTPUT
                     else:
                         st.error(f"❌ {result.get('error', 'Unknown error')}")
         except Exception as e:
