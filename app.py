@@ -1054,6 +1054,26 @@ HILLSBOROUGH_FLU_CODES = {
     'E': 'Environmentally Sensitive Area',
 }
 
+# Pasco County Zoning Descriptions
+PASCO_ZONING_DESCRIPTIONS = {
+    'MPUD': 'Master Planned Unit Development',
+    'MPUD-100': 'Master Planned Unit Development',
+    'PD': 'Planned Development',
+    'AG': 'Agricultural',
+    'AG-1': 'Agricultural-1',
+    'RR': 'Rural Residential',
+    'RE': 'Residential Estate',
+    'RS': 'Residential Suburban',
+    'RM': 'Residential Medium',
+    'RH': 'Residential High',
+    'MH': 'Mobile Home',
+    'CN': 'Commercial Neighborhood',
+    'CG': 'Commercial General',
+    'IL': 'Industrial Limited',
+    'IG': 'Industrial General',
+    'P/SP': 'Public/Semi-Public',
+}
+
 def get_hillsborough_flu_description(code):
     """Convert Hillsborough FLU code to description."""
     if not code:
@@ -1255,7 +1275,14 @@ def lookup_pasco_parcel(parcel_id):
         flu_code = attrs.get('DOR4CODE', '')
         flu_desc = get_land_use_description(flu_code) if flu_code else ''
         
+        # Get zoning and add description
+        zoning_code = attrs.get('ZONING', '')
+        zoning_with_desc = zoning_code
+        if zoning_code and zoning_code in PASCO_ZONING_DESCRIPTIONS:
+            zoning_with_desc = f"{zoning_code} - {PASCO_ZONING_DESCRIPTIONS[zoning_code]}"
+        
         st.write(f"DEBUG: DOR4CODE (FLU) = {flu_code} -> {flu_desc}")
+        st.write(f"DEBUG: ZONING = {zoning_code} -> {zoning_with_desc}")
         
         return {
             'success': True,
@@ -1266,7 +1293,7 @@ def lookup_pasco_parcel(parcel_id):
             'land_use': land_use_desc,
             'site_area_acres': acres_str,
             'site_area_sqft': '',
-            'zoning': attrs.get('ZONING', ''),
+            'zoning': zoning_with_desc,  # Code + description
             'flu': flu_desc,  # DOR description, not code
             'geometry': geom
         }
