@@ -1327,11 +1327,13 @@ def lookup_pasco_zoning_flu(address, geometry=None):
         
         if zoning_data.get('features'):
             attrs = zoning_data['features'][0]['attributes']
+            st.write(f"DEBUG: Zoning attributes = {attrs}")
             # Correct field name is ZN_TYPE
             zoning_code = attrs.get('ZN_TYPE', '')
             zoning_desc = PASCO_ZONING_DESCRIPTIONS.get(zoning_code, '')
             result['zoning_code'] = zoning_code
             result['zoning_description'] = zoning_desc
+            st.write(f"DEBUG: ZN_TYPE value = {zoning_code}")
         
         # ALWAYS query Future Land Use (Layer 0)
         flu_url = "https://mapping.pascopa.com/arcgis/rest/services/Land_Use/MapServer/0/query"
@@ -1645,7 +1647,7 @@ if st.button("🗺️ Lookup Zoning & Future Land Use", type="secondary"):
             else:
                 st.success(f"✅ Zoning data updated!")
             
-            st.rerun()  # TEMPORARILY DISABLED TO SEE PASCO FLU DEBUG
+            # st.rerun()  # TEMPORARILY DISABLED TO SEE ZONING DEBUG
         else:
             st.error(f"❌ {zoning_result.get('error', 'Unable to fetch zoning data')}")
 
