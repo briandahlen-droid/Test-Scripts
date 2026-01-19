@@ -1251,6 +1251,12 @@ def lookup_pasco_parcel(parcel_id):
         dor_code = attrs.get('DORUSECODE') or attrs.get('DOR4CODE')
         land_use_desc = get_land_use_description(dor_code) if dor_code else attrs.get('PARUSEDESC', '')
         
+        # For Pasco County, DOR4CODE is used as Future Land Use - convert to description
+        flu_code = attrs.get('DOR4CODE', '')
+        flu_desc = get_land_use_description(flu_code) if flu_code else ''
+        
+        st.write(f"DEBUG: DOR4CODE (FLU) = {flu_code} -> {flu_desc}")
+        
         return {
             'success': True,
             'address': address,
@@ -1261,6 +1267,7 @@ def lookup_pasco_parcel(parcel_id):
             'site_area_acres': acres_str,
             'site_area_sqft': '',
             'zoning': attrs.get('ZONING', ''),
+            'flu': flu_desc,  # DOR description, not code
             'geometry': geom
         }
     except Exception as e:
@@ -1549,11 +1556,11 @@ if st.button("🔍 Lookup Property Info", type="primary"):
                         st.session_state['api_zoning'] = result.get('zoning', '')
                         st.session_state['land_area_sqft'] = result.get('site_area_sqft', '')
                         st.session_state['land_area_acres'] = result.get('site_area_acres', '')
-                        st.session_state['api_flu'] = ''
+                        st.session_state['api_flu'] = result.get('flu', '')  # DOR4CODE for Pasco
                         st.session_state['pasco_geometry'] = result.get('geometry')
                         
                         st.success("✅ Property data retrieved successfully!")
-                        # st.rerun()  # TEMPORARILY DISABLED TO SEE DEBUG OUTPUT
+                        # st.rerun()  # Test once more to verify FLU, then remove debug
                     else:
                         st.error(f"❌ {result.get('error', 'Unknown error')}")
         except Exception as e:
