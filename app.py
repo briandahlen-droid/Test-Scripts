@@ -1261,7 +1261,10 @@ def lookup_pasco_parcel(parcel_id):
         
         # Pasco uses MAF Use Codes, not DOR codes
         use_code = attrs.get('PARUSECODE') or attrs.get('PARUSEDESC') or ''
+        st.write(f"DEBUG: PARUSECODE = {attrs.get('PARUSECODE')}, PARUSEDESC = {attrs.get('PARUSEDESC')}")
+        st.write(f"DEBUG: Using use_code = {use_code}")
         land_use_desc = get_pasco_use_description(use_code)
+        st.write(f"DEBUG: Converted to = {land_use_desc}")
         
         return {
             'success': True,
@@ -1328,6 +1331,12 @@ def lookup_pasco_zoning_flu(address, geometry=None):
         
         if zoning_data.get('features'):
             attrs = zoning_data['features'][0]['attributes']
+            st.write("DEBUG: ALL Zoning attributes:")
+            st.write(attrs)
+            st.write(f"ZONEID = {attrs.get('ZONEID')}")
+            st.write(f"ZN_TYPE = {attrs.get('ZN_TYPE')}")
+            st.write(f"ZN_STR = {attrs.get('ZN_STR')}")
+            
             # Based on research: ZN_STR has complete code (R4-100), ZN_TYPE has just type (R4)
             zoning_code = attrs.get('ZN_STR', '') or attrs.get('ZN_TYPE', '')
             # Extract base code for description lookup (R4-100 -> R4)
@@ -1335,6 +1344,7 @@ def lookup_pasco_zoning_flu(address, geometry=None):
             zoning_desc = PASCO_ZONING_DESCRIPTIONS.get(base_code, '')
             result['zoning_code'] = zoning_code
             result['zoning_description'] = zoning_desc
+            st.write(f"Using zoning_code = {zoning_code}, description = {zoning_desc}")
         
         # ALWAYS query Future Land Use (Layer 0)
         flu_url = "https://mapping.pascopa.com/arcgis/rest/services/Land_Use/MapServer/0/query"
@@ -1578,7 +1588,7 @@ if st.button("🔍 Lookup Property Info", type="primary"):
                         st.session_state['pasco_geometry'] = result.get('geometry')
                         
                         st.success("✅ Property data retrieved successfully!")
-                        st.rerun()  # Test once more to verify FLU, then remove debug
+                        # st.rerun()  # DISABLED TO SEE PROPERTY USE DEBUG
                     else:
                         st.error(f"❌ {result.get('error', 'Unknown error')}")
         except Exception as e:
@@ -1648,7 +1658,7 @@ if st.button("🗺️ Lookup Zoning & Future Land Use", type="secondary"):
             else:
                 st.success(f"✅ Zoning data updated!")
             
-            st.rerun()
+            # st.rerun()  # DISABLED TO SEE DEBUG
         else:
             st.error(f"❌ {zoning_result.get('error', 'Unable to fetch zoning data')}")
 
