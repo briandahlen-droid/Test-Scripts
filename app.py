@@ -924,18 +924,111 @@ def lookup_pinellas_zoning(city_name, address, parcel_data=None):
 
 DOR_LAND_USE_CODES = {
     '0000': 'Vacant Residential', '0001': 'Single Family', '0002': 'Mobile Homes',
-    '0003': 'Multi-Family (10+ units)', '0004': 'Condominiums', '0006': 'Retirement Homes',
-    '0008': 'Multi-Family (Less than 10 units)', '0010': 'Vacant Commercial',
-    '0011': 'Stores, One Story', '0017': 'Office Buildings, One Story',
-    '0018': 'Office Buildings, Multi-Story', '0021': 'Restaurants, Cafeterias',
-    '0023': 'Financial Institutions', '0026': 'Service Stations',
-    '0039': 'Hotels, Motels', '0040': 'Vacant Industrial', '0041': 'Light Manufacturing',
-    '0048': 'Warehousing', '0050': 'Improved Agricultural', '0070': 'Vacant Institutional',
-    '0071': 'Churches', '0072': 'Private Schools/Colleges', '0080': 'Vacant Governmental',
-    '0082': 'Forests, Parks, Recreational', '0083': 'Public Schools',
-    '0089': 'Municipal Government', '0091': 'Utility', '0094': 'Right-of-Way',
+    '0003': 'Multi-Family (10+ units)', '0004': 'Condominiums', '0005': 'Cooperatives',
+    '0006': 'Retirement Homes', '0007': 'Miscellaneous Residential',
+    '0008': 'Multi-Family (Less than 10 units)', '0009': 'Residential Common Elements/Areas',
+    '0010': 'Vacant Commercial', '0011': 'Stores, One Story', '0012': 'Mixed Use Store/Office',
+    '0013': 'Department Stores', '0014': 'Supermarkets', '0015': 'Regional Shopping Centers',
+    '0016': 'Community Shopping Centers', '0017': 'Office Buildings, One Story',
+    '0018': 'Office Buildings, Multi-Story', '0019': 'Professional Service Buildings',
+    '0020': 'Airports, Terminals, Marinas', '0021': 'Restaurants, Cafeterias',
+    '0022': 'Drive-In Restaurants', '0023': 'Financial Institutions',
+    '0024': 'Insurance Company Offices', '0025': 'Repair Service Shops',
+    '0026': 'Service Stations', '0027': 'Auto Sales, Auto Repair',
+    '0028': 'Parking Lots, Mobile Home Parks', '0029': 'Wholesale Outlets',
+    '0030': 'Florists, Greenhouses', '0031': 'Drive-In Theaters',
+    '0032': 'Enclosed Theaters', '0033': 'Nightclubs, Bars',
+    '0034': 'Bowling Alleys, Skating Rinks', '0035': 'Tourist Attractions',
+    '0036': 'Camps', '0037': 'Race Tracks', '0038': 'Golf Courses', '0039': 'Hotels, Motels',
+    '0040': 'Vacant Industrial', '0041': 'Light Manufacturing', '0042': 'Heavy Industrial',
+    '0043': 'Lumber Yards, Sawmills', '0044': 'Packing Plants', '0045': 'Canneries, Bottlers',
+    '0046': 'Other Food Processing', '0047': 'Mineral Processing', '0048': 'Warehousing',
+    '0049': 'Open Storage', '0050': 'Improved Agricultural', '0051': 'Cropland Class I',
+    '0052': 'Cropland Class II', '0053': 'Cropland Class III', '0054': 'Timberland',
+    '0055': 'Timberland', '0056': 'Timberland', '0057': 'Timberland', '0058': 'Timberland',
+    '0059': 'Woods, Native Pasture', '0060': 'Grazing Land Class I',
+    '0061': 'Grazing Land Class II', '0062': 'Grazing Land Class III',
+    '0063': 'Grazing Land Class IV', '0064': 'Grazing Land Class V',
+    '0065': 'Grazing Land Class VI', '0066': 'Orchard Groves, Citrus',
+    '0067': 'Poultry, Bees, Fish', '0068': 'Dairies, Feed Lots',
+    '0069': 'Ornamentals, Misc Agricultural', '0070': 'Vacant Institutional',
+    '0071': 'Churches', '0072': 'Private Schools/Colleges', '0073': 'Private Hospitals',
+    '0074': 'Homes for the Aged', '0075': 'Non-Profit/Charitable',
+    '0076': 'Mortuaries, Cemeteries', '0077': 'Clubs, Lodges',
+    '0078': 'Sanitariums, Convalescent Homes', '0079': 'Cultural Organizations',
+    '0080': 'Vacant Governmental', '0081': 'Military', '0082': 'Forests, Parks, Recreational',
+    '0083': 'Public Schools', '0084': 'Colleges (Government)', '0085': 'Hospitals (Government)',
+    '0086': 'County Buildings', '0087': 'State Buildings', '0088': 'Federal Buildings',
+    '0089': 'Municipal Buildings', '0090': 'Leasehold Interests', '0091': 'Utility Buildings',
+    '0092': 'Mining Lands', '0093': 'Petroleum and Gas', '0094': 'Telephone Exchange Buildings',
+    '0095': 'Convenience Stores', '0096': 'Sewage Disposal, Waste Land',
+    '0097': 'Outdoor Recreational', '0098': 'Centrally Assessed',
+    '0099': 'Acreage Not Zoned Agricultural',
+    # 4-digit codes
     '8400': 'SCHOOLS/COLLEGE', '8300': 'PUBLIC SCHOOLS', '8500': 'HOSPITALS (GOVERNMENT)',
+    # 2-digit versions for codes that come without leading zeros
+    '86': 'County Buildings', '87': 'State Buildings', '88': 'Federal Buildings',
+    '89': 'Municipal Buildings', '83': 'Public Schools', '84': 'Colleges, Public', 
+    '85': 'Hospitals, Public', '91': 'Utility Buildings', '93': 'Petroleum and Gas',
+    '94': 'Telephone Exchange Buildings', '95': 'Convenience Stores', '98': 'Centrally Assessed',
 }
+
+# Pasco County MAF Use Codes (from search.pascopa.com/codes.aspx?type=016)
+PASCO_USE_CODES = {
+    '00': 'Unimproved', '01': 'Single Family Residential', '02': 'Mobile Home',
+    '03': 'Multi Family (5 or more Units per Building)', '04': 'Condominium',
+    '05': 'Multi Story Retirement Apartments', '07': 'Single Family Villas',
+    '08': 'Multi Family (4 or less Units per Building)', '11': 'Retail Stores (One Story)',
+    '12': 'Stores / Office SFR', '13': 'Department Stores, Discount Department Stores',
+    '14': 'Grocery Store, Market', '16': 'Shopping Center Local',
+    '17': 'Offices (One Story)', '18': 'Offices (Multi Story)',
+    '19': 'Offices Professional or Medical', '20': 'Airports',
+    '21': 'Restaurants (Full Service)', '22': 'Restaurants (Fast Food)',
+    '23': 'Financial Institutions', '25': 'Service Shops',
+    '26': 'Service Stations, Old Style', '27': 'Vehicle Sales / Dealer / Repair',
+    '29': 'Wholesale Manufacturing', '30': 'Florist, Greenhouses',
+    '31': 'Theaters, Drive In', '32': 'Theaters, Enclosed',
+    '33': 'Bars, Lounges, Night Clubs', '34': 'Bowling Alleys, Arenas',
+    '35': 'Tourist Attraction', '36': 'Camps', '37': 'Race Tracks',
+    '38': 'Golf Courses', '39': 'Hotels Motels', '41': 'Light Manufacturing',
+    '42': 'Heavy Industrial', '43': 'Lumber Yards', '44': 'Packing Plants',
+    '45': 'Breweries, Wineries, Etc.', '46': 'Metal Bldg Misc',
+    '47': 'Mineral Processing', '48': 'Warehouses,Block', '49': 'Open Space',
+    '50': 'Improved Rural Homesite', '51': 'Cropland Class I',
+    '52': 'Cropland Class II', '53': 'Cropland Class II',
+    '54': 'Timber, Site Index I', '55': 'Timber, Site Index II',
+    '56': 'Timber, Site Index III', '57': 'Timber, Site Index IV',
+    '58': 'Timber, Site Index V', '59': 'Unclassified Timberland',
+    '60': 'Grazing Land Class I', '61': 'Grazing Land Class II',
+    '62': 'Grazing Land Class III', '63': 'Grazing Land Class IV',
+    '64': 'Grazing Land Class V', '65': 'Grazing Land Class VI',
+    '66': 'Orchards, Groves', '67': 'Poultry, Bees, etc.',
+    '68': 'Daries, Feed Lots', '69': 'Ornamentals',
+    '70': 'Vacant Institutional', '71': 'Churches',
+    '72': 'Schools, Colleges, Private', '73': 'Hospitals, Private',
+    '74': 'Nursing Homes (Typical Skilled Nursing Facility)',
+    '75': 'Orphanage', '76': 'Mortuary, Funeral Home',
+    '77': 'Clubs, Lodges, Halls', '78': 'Inpatient/Outpatient Clinics',
+    '79': 'Warehouses, Mini Storage', '80': 'Metal Buildings',
+    '81': 'Military', '82': 'Forest, Park, Etc.', '83': 'Schools, Public',
+    '84': 'Colleges, Public', '85': 'Hospitals, Public',
+    '86': 'County Buildings', '87': 'State Buildings',
+    '88': 'Federal Buildings', '89': 'Municipal Buildings',
+    '91': 'Utility Buildings', '93': 'Petroleum and Gas',
+    '94': 'Telephone Exchange Buildings', '95': 'Convenience Stores',
+    '98': 'Centrally Assessed',
+}
+
+def get_pasco_use_description(code):
+    """Convert Pasco County MAF use code to description."""
+    if not code:
+        return ''
+    code_str = str(code).strip()
+    # If already text, return as-is
+    if any(c.isalpha() for c in code_str):
+        return code_str
+    # Look up in Pasco codes
+    return PASCO_USE_CODES.get(code_str, code_str)
 
 def get_land_use_description(code_or_desc):
     """Convert DOR land use code to description. If already text, return as-is."""
@@ -1165,8 +1258,9 @@ def lookup_pasco_parcel(parcel_id):
         acres = attrs.get('ACRES') or attrs.get('AREANO')
         acres_str = f"{float(acres):.2f}" if acres and acres not in [None, 'None', ''] else ''
         
-        dor_code = attrs.get('DORUSECODE') or attrs.get('DOR4CODE')
-        land_use_desc = get_land_use_description(dor_code) if dor_code else attrs.get('PARUSEDESC', '')
+        # Pasco uses MAF Use Codes, not DOR codes
+        use_code = attrs.get('PARUSECODE') or attrs.get('PARUSEDESC') or ''
+        land_use_desc = get_pasco_use_description(use_code)
         
         return {
             'success': True,
