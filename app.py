@@ -591,6 +591,79 @@ def scrape_pinellas_property(parcel_id):
 # ST. PETERSBURG ZONING LAYER LOOKUP
 # ============================================================================
 
+def scrape_pasco_property(parcel_id):
+    """
+    Scrape Pasco County Property Appraiser website for parcel data.
+    URL: https://search.pascopa.com/parcel.aspx?parcel={ID}
+    """
+    session = get_resilient_session()
+    
+    # Pasco accepts parcel ID with or without dashes/spaces
+    clean_parcel = parcel_id.strip().replace(' ', '')
+    
+    url = f"https://search.pascopa.com/parcel.aspx?parcel={clean_parcel}"
+    
+    st.write(f"DEBUG: Scraping Pasco PA at: {url}")
+    
+    try:
+        response = session.get(url, timeout=15)
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.text, 'lxml')
+        
+        # Initialize result dict
+        result = {
+            'success': True,
+            'address': '',
+            'city': '',
+            'zip': '',
+            'owner': '',
+            'land_use': '',
+            'site_area_acres': '',
+            'site_area_sqft': '',
+            'zoning': '',
+            'flu': ''
+        }
+        
+        # Extract all text content for debugging
+        page_text = soup.get_text()
+        st.write(f"DEBUG: Page loaded, text length: {len(page_text)}")
+        
+        # Look for key sections
+        if 'Owner Name:' in page_text:
+            owner_idx = page_text.find('Owner Name:')
+            owner_section = page_text[owner_idx:owner_idx+200]
+            st.write(f"DEBUG: Found Owner section: {owner_section[:100]}")
+        
+        if 'Physical Address:' in page_text:
+            addr_idx = page_text.find('Physical Address:')
+            addr_section = page_text[addr_idx:addr_idx+200]
+            st.write(f"DEBUG: Found Address section: {addr_section[:100]}")
+        
+        if 'Acres:' in page_text:
+            acres_idx = page_text.find('Acres:')
+            acres_section = page_text[acres_idx:acres_idx+50]
+            st.write(f"DEBUG: Found Acres section: {acres_section}")
+        
+        if 'Zoning:' in page_text:
+            zoning_idx = page_text.find('Zoning:')
+            zoning_section = page_text[zoning_idx:zoning_idx+100]
+            st.write(f"DEBUG: Found Zoning section: {zoning_section}")
+        
+        if 'Future Land Use:' in page_text:
+            flu_idx = page_text.find('Future Land Use:')
+            flu_section = page_text[flu_idx:flu_idx+100]
+            st.write(f"DEBUG: Found FLU section: {flu_section}")
+        
+        st.write("DEBUG: Scraping result (before parsing):")
+        st.write(result)
+        
+        return result
+        
+    except Exception as e:
+        st.write(f"DEBUG: Scraping error: {str(e)}")
+        return {'success': False, 'error': str(e)}
+
 def is_unincorporated(city_name):
     """Check if city is unincorporated Pinellas."""
     if not city_name:
@@ -1440,8 +1513,8 @@ if st.button("🔍 Lookup Property Info", type="primary"):
                 st.write("DEBUG: Pasco button branch triggered")
                 st.write(f"DEBUG: Parcel ID = {parcel_id_input}")
                 
-                with st.spinner("Fetching property data from Pasco County..."):
-                    result = lookup_pasco_parcel(parcel_id_input)
+                with st.spinner("Fetching property data from Pasco County Property Appraiser..."):
+                    result = scrape_pasco_property(parcel_id_input)
                     
                     st.write(f"DEBUG: Result = {result}")
                     
