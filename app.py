@@ -1342,10 +1342,12 @@ def lookup_pasco_zoning_flu(address, geometry=None):
         if zoning_data.get('features'):
             attrs = zoning_data['features'][0]['attributes']
             st.write(f"DEBUG: Zoning attributes: {attrs}")
-            zoning_code = attrs.get('ZONE') or attrs.get('ZONING') or attrs.get('ZN_TYPE') or ''
+            # Correct field name is ZN_TYPE
+            zoning_code = attrs.get('ZN_TYPE', '')
+            zoning_desc = PASCO_ZONING_DESCRIPTIONS.get(zoning_code, '')
             result['zoning_code'] = zoning_code
-            result['zoning_description'] = attrs.get('ZONE_DESC') or attrs.get('ZONING_DESC') or ''
-            st.write(f"DEBUG: Zoning code = {zoning_code}")
+            result['zoning_description'] = zoning_desc
+            st.write(f"DEBUG: Zoning = {zoning_code} - {zoning_desc}")
         
         # ALWAYS query Future Land Use (Layer 0)
         st.write(f"DEBUG: Querying Pasco FLU layer with coords ({x}, {y})")
@@ -1369,10 +1371,17 @@ def lookup_pasco_zoning_flu(address, geometry=None):
         if flu_data.get('features'):
             attrs = flu_data['features'][0]['attributes']
             st.write(f"DEBUG: FLU attributes: {attrs}")
-            # Try common field names for FLU
-            flu_value = attrs.get('FLU') or attrs.get('LANDUSE') or attrs.get('FUTURE_LAND_USE') or attrs.get('FLU_CODE') or ''
-            result['future_land_use'] = flu_value
-            st.write(f"DEBUG: FLU value = {flu_value}")
+            # Correct field names: FLU_CODE and DESCRIPTION
+            flu_code = attrs.get('FLU_CODE', '')
+            flu_desc = attrs.get('DESCRIPTION', '')
+            # Combine code and description
+            if flu_code and flu_desc:
+                result['future_land_use'] = f"{flu_code} - {flu_desc}"
+            elif flu_desc:
+                result['future_land_use'] = flu_desc
+            elif flu_code:
+                result['future_land_use'] = flu_code
+            st.write(f"DEBUG: FLU = {flu_code} - {flu_desc}")
         
         st.write(f"DEBUG: Final result = {result}")
         
