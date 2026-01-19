@@ -1271,18 +1271,8 @@ def lookup_pasco_parcel(parcel_id):
         dor_code = attrs.get('DORUSECODE') or attrs.get('DOR4CODE')
         land_use_desc = get_land_use_description(dor_code) if dor_code else attrs.get('PARUSEDESC', '')
         
-        # For Pasco County, DOR4CODE is used as Future Land Use - convert to description
-        flu_code = attrs.get('DOR4CODE', '')
-        flu_desc = get_land_use_description(flu_code) if flu_code else ''
-        
-        # Get zoning and add description
-        zoning_code = attrs.get('ZONING', '')
-        zoning_with_desc = zoning_code
-        if zoning_code and zoning_code in PASCO_ZONING_DESCRIPTIONS:
-            zoning_with_desc = f"{zoning_code} - {PASCO_ZONING_DESCRIPTIONS[zoning_code]}"
-        
-        st.write(f"DEBUG: DOR4CODE (FLU) = {flu_code} -> {flu_desc}")
-        st.write(f"DEBUG: ZONING = {zoning_code} -> {zoning_with_desc}")
+        # For Pasco: SWFWMD has basic data only - Zoning & FLU come from second button
+        st.write(f"DEBUG: Leaving Zoning and FLU empty for GIS layer lookup")
         
         return {
             'success': True,
@@ -1293,8 +1283,8 @@ def lookup_pasco_parcel(parcel_id):
             'land_use': land_use_desc,
             'site_area_acres': acres_str,
             'site_area_sqft': '',
-            'zoning': zoning_with_desc,  # Code + description
-            'flu': flu_desc,  # DOR description, not code
+            'zoning': '',  # Second button fills from GIS
+            'flu': '',     # Second button fills from GIS
             'geometry': geom
         }
     except Exception as e:
@@ -1331,6 +1321,7 @@ def lookup_pasco_zoning_flu(address, geometry=None):
         xmax, ymax = x + buffer, y + buffer
         
         # Query Pasco County Zoning (Layer 1)
+        st.write(f"DEBUG: Querying Pasco Zoning layer with coords ({x}, {y})")
         zoning_url = "https://mapping.pascopa.com/arcgis/rest/services/Land_Use/MapServer/1/query"
         zoning_params = {
             'where': '1=1',
@@ -1346,13 +1337,18 @@ def lookup_pasco_zoning_flu(address, geometry=None):
         zoning_resp = requests.get(zoning_url, params=zoning_params, timeout=10)
         zoning_data = zoning_resp.json()
         
+        st.write(f"DEBUG: Zoning response features: {len(zoning_data.get('features', []))}")
+        
         if zoning_data.get('features'):
             attrs = zoning_data['features'][0]['attributes']
-            # Try common field names for zoning
-            result['zoning_code'] = attrs.get('ZONE') or attrs.get('ZONING') or attrs.get('ZN_TYPE') or ''
+            st.write(f"DEBUG: Zoning attributes: {attrs}")
+            zoning_code = attrs.get('ZONE') or attrs.get('ZONING') or attrs.get('ZN_TYPE') or ''
+            result['zoning_code'] = zoning_code
             result['zoning_description'] = attrs.get('ZONE_DESC') or attrs.get('ZONING_DESC') or ''
+            st.write(f"DEBUG: Zoning code = {zoning_code}")
         
-        # Query Future Land Use (Layer 0)
+        # ALWAYS query Future Land Use (Layer 0)
+        st.write(f"DEBUG: Querying Pasco FLU layer with coords ({x}, {y})")
         flu_url = "https://mapping.pascopa.com/arcgis/rest/services/Land_Use/MapServer/0/query"
         flu_params = {
             'where': '1=1',
@@ -1368,10 +1364,17 @@ def lookup_pasco_zoning_flu(address, geometry=None):
         flu_resp = requests.get(flu_url, params=flu_params, timeout=10)
         flu_data = flu_resp.json()
         
+        st.write(f"DEBUG: FLU response features: {len(flu_data.get('features', []))}")
+        
         if flu_data.get('features'):
             attrs = flu_data['features'][0]['attributes']
+            st.write(f"DEBUG: FLU attributes: {attrs}")
             # Try common field names for FLU
-            result['future_land_use'] = attrs.get('FLU') or attrs.get('LANDUSE') or attrs.get('FUTURE_LAND_USE') or ''
+            flu_value = attrs.get('FLU') or attrs.get('LANDUSE') or attrs.get('FUTURE_LAND_USE') or attrs.get('FLU_CODE') or ''
+            result['future_land_use'] = flu_value
+            st.write(f"DEBUG: FLU value = {flu_value}")
+        
+        st.write(f"DEBUG: Final result = {result}")
         
         return result
     except Exception as e:
@@ -1657,7 +1660,7 @@ if st.button("🗺️ Lookup Zoning & Future Land Use", type="secondary"):
             else:
                 st.success(f"✅ Zoning data updated!")
             
-            st.rerun()
+            # st.rerun()  # TEMPORARILY DISABLED TO SEE PASCO FLU DEBUG
         else:
             st.error(f"❌ {zoning_result.get('error', 'Unable to fetch zoning data')}")
 
