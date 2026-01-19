@@ -1337,18 +1337,9 @@ def lookup_pasco_zoning_flu(address, geometry=None):
         if zoning_data.get('features'):
             attrs = zoning_data['features'][0]['attributes']
             
-            st.write(f"DEBUG: ZN_STR field value = '{attrs.get('ZN_STR')}'")
-            st.write(f"DEBUG: ZN_TYPE field value = '{attrs.get('ZN_TYPE')}'")
-            st.write(f"DEBUG: ZONEID field value = '{attrs.get('ZONEID')}'")
-            
-            # Use ZN_STR for complete zoning code (R4-100, MPUD-100, etc.)
-            zoning_code = attrs.get('ZN_STR', '')
-            
-            st.write(f"DEBUG: After get, zoning_code = '{zoning_code}'")
-            
-            # Extract base code for description lookup (R4-100 -> R4)
-            base_code = zoning_code.split('-')[0] if '-' in zoning_code else zoning_code
-            zoning_desc = PASCO_ZONING_DESCRIPTIONS.get(base_code, '')
+            # Use ZN_TYPE for zoning code (R4, MPUD, etc.)
+            zoning_code = attrs.get('ZN_TYPE', '')
+            zoning_desc = PASCO_ZONING_DESCRIPTIONS.get(zoning_code, '')
             
             result['zoning_code'] = zoning_code
             result['zoning_description'] = zoning_desc
@@ -1382,11 +1373,6 @@ def lookup_pasco_zoning_flu(address, geometry=None):
                 result['future_land_use'] = flu_desc
             elif flu_code:
                 result['future_land_use'] = flu_code
-        
-        st.write(f"DEBUG: Pasco zoning_flu function returning:")
-        st.write(f"  zoning_code = '{result.get('zoning_code')}'")
-        st.write(f"  zoning_description = '{result.get('zoning_description')}'")
-        st.write(f"  future_land_use = '{result.get('future_land_use')}'")
         
         return result
     except Exception as e:
@@ -1669,7 +1655,7 @@ if st.button("🗺️ Lookup Zoning & Future Land Use", type="secondary"):
             else:
                 st.success(f"✅ Zoning data updated!")
             
-            # st.rerun()  # DISABLED TO SEE DEBUG
+            st.rerun()
         else:
             st.error(f"❌ {zoning_result.get('error', 'Unable to fetch zoning data')}")
 
