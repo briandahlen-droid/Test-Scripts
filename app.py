@@ -609,6 +609,9 @@ def scrape_pasco_property(parcel_id):
         response = session.get(url, timeout=15)
         response.raise_for_status()
         
+        st.write(f"DEBUG: HTTP Status: {response.status_code}")
+        st.write(f"DEBUG: Final URL: {response.url}")
+        
         soup = BeautifulSoup(response.text, 'lxml')
         
         # Initialize result dict
@@ -628,6 +631,16 @@ def scrape_pasco_property(parcel_id):
         # Extract all text content for debugging
         page_text = soup.get_text()
         st.write(f"DEBUG: Page loaded, text length: {len(page_text)}")
+        
+        # Show first 1000 characters of page text to see structure
+        st.write("DEBUG: First 1000 characters of page:")
+        st.code(page_text[:1000])
+        
+        # Also show any divs or spans that might contain data
+        data_divs = soup.find_all(['div', 'span', 'td'], class_=True, limit=20)
+        st.write(f"DEBUG: Found {len(data_divs)} elements with classes")
+        for elem in data_divs[:10]:
+            st.write(f"  - {elem.name} class={elem.get('class')}: {elem.get_text()[:50]}")
         
         # Look for key sections
         if 'Owner Name:' in page_text:
@@ -1221,7 +1234,16 @@ def lookup_pasco_parcel(parcel_id):
         st.write(f"SITUSADD1: {attrs.get('SITUSADD1')}")
         st.write(f"SCITY: {attrs.get('SCITY')}")
         st.write(f"SZIP: {attrs.get('SZIP')}")
-        st.write(f"Available address fields: {[k for k in attrs.keys() if 'ADDR' in k or 'ADD' in k or 'CITY' in k or 'ZIP' in k]}")
+        st.write(f"MAILADD: {attrs.get('MAILADD')}")
+        st.write(f"MCITY: {attrs.get('MCITY')}")
+        st.write(f"MZIP: {attrs.get('MZIP')}")
+        
+        # Try site address first, fallback to mailing address
+        address = attrs.get('SITEADD') or attrs.get('SITUSADD1') or attrs.get('MAILADD') or ''
+        city = attrs.get('SCITY') or attrs.get('MCITY') or ''
+        zip_code = attrs.get('SZIP') or attrs.get('MZIP') or ''
+        
+        st.write(f"DEBUG: Using address={address}, city={city}, zip={zip_code}")
         
         acres = attrs.get('ACRES') or attrs.get('AREANO')
         acres_str = f"{float(acres):.2f}" if acres and acres not in [None, 'None', ''] else ''
@@ -1231,9 +1253,9 @@ def lookup_pasco_parcel(parcel_id):
         
         return {
             'success': True,
-            'address': attrs.get('SITEADD', attrs.get('SITUSADD1', '')),
-            'city': attrs.get('SCITY', ''),
-            'zip': attrs.get('SZIP', ''),
+            'address': address,
+            'city': city,
+            'zip': zip_code,
             'owner': attrs.get('OWNNAME', attrs.get('OWNERNAME', '')),
             'land_use': land_use_desc,
             'site_area_acres': acres_str,
@@ -1513,8 +1535,8 @@ if st.button("🔍 Lookup Property Info", type="primary"):
                 st.write("DEBUG: Pasco button branch triggered")
                 st.write(f"DEBUG: Parcel ID = {parcel_id_input}")
                 
-                with st.spinner("Fetching property data from Pasco County Property Appraiser..."):
-                    result = scrape_pasco_property(parcel_id_input)
+                with st.spinner("Fetching property data from Pasco County (SWFWMD)..."):
+                    result = lookup_pasco_parcel(parcel_id_input)
                     
                     st.write(f"DEBUG: Result = {result}")
                     
