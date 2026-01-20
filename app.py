@@ -1,7 +1,6 @@
 """
 Development Services Proposal Generator
-Streamlit web application for generating professional proposal documents
-Integrated with comprehensive property lookup for Pinellas, Hillsborough, and Pasco counties
+Integrated property lookup for Pinellas, Hillsborough, and Pasco counties
 """
 import streamlit as st
 from datetime import date
@@ -17,6 +16,8 @@ import requests
 from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+
+st.set_page_config(page_title="Proposal Generator", page_icon="📋", layout="wide")
 
 # ============================================================================
 # PINELLAS CITY NAME MAPPING
@@ -1487,9 +1488,884 @@ def lookup_stpete_zoning(address):
 
 
 # ============================================================================
-# DOCUMENT GENERATION FUNCTIONS
+# TASK CONFIGURATIONS AND FEE STRUCTURES
 # ============================================================================
 
+DEFAULT_FEES = {
+    '110': {'name': 'Civil Engineering Design', 'amount': 40000, 'type': 'Hourly, Not-to-Exceed'},
+    '120': {'name': 'Civil Schematic Design', 'amount': 35000, 'type': 'Hourly, Not-to-Exceed'},
+    '130': {'name': 'Civil Design Development', 'amount': 45000, 'type': 'Hourly, Not-to-Exceed'},
+    '140': {'name': 'Civil Construction Documents', 'amount': 50000, 'type': 'Hourly, Not-to-Exceed'},
+    '150': {'name': 'Civil Permitting', 'amount': 40000, 'type': 'Hourly, Not-to-Exceed'},
+    '210': {'name': 'Meetings and Coordination', 'amount': 20000, 'type': 'Hourly, Not-to-Exceed'},
+    '310': {'name': 'Civil Construction Phase Services', 'amount': 35000, 'type': 'Lump Sum'}
+}
+
+TASK_DESCRIPTIONS = {
+    '110': [
+        "Kimley-Horn will prepare an onsite drainage report with supporting calculations showing the proposed development plan is consistent with the Southwest Florida Water Management District Basis of Review. This design will account for the stormwater design to support the development of the project site. The drainage report will include limited stormwater modeling to demonstrate that the Lot A site development will maintain the existing discharge rate and provide the required stormwater attenuation.",
+        "The onsite drainage report will include calculations for 25-year 24-hour and 100-year 24-hour design storm conditions in accordance with Southwest Florida Water Management District Guidelines. A base stormwater design will be provided for the project site showing reasonable locations for stormwater conveyance features and stormwater management pond sizing."
+    ],
+    '120': [
+        "Kimley-Horn will prepare Civil Schematic Design deliverables in accordance with the Client's Design Project Deliverables Checklist. For the Civil Schematic Design task, the deliverables that Kimley-Horn will provide consist of Civil Site Plan, Establish Finish Floor Elevations, Utility Will Serve Letters and Points of Service, Utility Routing and Easement Requirements."
+    ],
+    '130': [
+        "Upon Client approval of the Schematic Design task, Kimley-Horn will prepare Design Development Plans of the civil design in accordance with the Client's Design Project Deliverables Checklist for Civil Design Development Deliverables. These documents will be approximately 50% complete and will include detail for City code review and preliminary pricing but will not include enough detail for construction bidding."
+    ],
+    '140': [
+        "Based on the approved Development Plan, Kimley-Horn will provide engineering and design services for the preparation of site construction plans for on-site improvements.",
+        "Cover Sheet",
+        "The cover sheet includes plan contents, vicinity map, legal description and team identification.",
+        "General Notes",
+        "These sheets will provide general notes for the construction of the project.",
+        "Existing Conditions / Demolition Plan",
+        "Consisting of the boundary, topographic, and tree survey provided by others. This sheet will include and identify the required demolition of the existing items on the project site and facilities improvements prior to construction of the proposed site and facilities improvements.",
+        "Stormwater Pollution Prevention Plan",
+        "This sheet will include and identify stormwater best management practices for the construction of the proposed site including erosion control and stormwater management areas; applicable details, and specifications. This sheet may also be combined with the Existing Conditions/Demolition Plan sheets depending on the scope of the work.",
+        "Site Plan (Horizontal Control & Signing and Marking Plan)",
+        "Kimley-Horn shall prepare a Site Plan, as indicated above, with associated parking and infrastructure. Site Plan shall consist of the following: site geometry, building setbacks; roadway and parking dimensions including handicap spaces; landscape island locations and dimensions; storm water detention area locations and dimensions; boundary dimensions; dimensions and locations of pedestrian walks; signing and marking design. Signing and Marking within the structured parking as well as loading areas and compactors (if applicable) to be designed by the Architect.",
+        "Paving, Grading, and Drainage Plan",
+        "Kimley-Horn shall design and prepare a plan for the site paving, grading and drainage systems in accordance with the City, the FDOT, and the Water Management District (SWFWMD) to consist of: flood routing; pipe materials and sizing; grate and invert elevations; surface parking including pavement structural section (as provided by owner's geotechnical report); subgrade treatment; curbs; horizontal control; sidewalks; driveway connections; spot elevations and elevation contours; and construction details and specifications, and erosion and sedimentation control measures.",
+        "**NOTE:**Any structural retaining walls are not included with this scope and shall be designed and permitted by others. Hardscape areas shall be designed by others, therefore paving, grading and drainage of these areas is not included. Stub-out connections for the hardscape drainage areas will be shown per direction from the Hardscape designer.",
+        "Detailed grading and drainage design for any proposed pool deck or amenity area is to be designed and coordinated by the Architect and the MEP. Kimley-Horn can provide these services if requested by the client as additional services.",
+        "Utility Plans",
+        "Kimley-Horn shall prepare a plan for the site water distribution and sanitary sewer collection systems consisting of: sewer main locations; pipe sizing; manhole locations; rim and invert elevations; sewer lateral locations and size; existing sewer main connection; main location; materials and sizing; fire hydrant locations; water service locations; fire service locations and sizes; pipe materials; meter locations; sample points; existing water main connections; and construction details and specifications. Kimley-Horn will design the sanitary sewer to discharge to the adjacent development collection system. No upgrades to the off-site infrastructure. Should this be required during design and permitting, this will be submitted as an additional service.",
+        "**NOTE:**Kimley-Horn's contract does not include the design of the fire lines from the designated point of service (P.O.S.) up to 1' above the building finished floor as those lines will need to be sized and designed by a licensed fire sprinkler engineer and permitted separately.",
+        "Kimley-Horn has assumed utilities are available and have adequate capacity to accommodate the proposed development. Kimley-Horn assumes the utilities are located at the project boundary and will not require off-site utility extensions. If off-site extensions are needed, they will be provided as additional services. Lift station, force main, and pump design and permitting, if needed, is not included but can be provided as an Additional Service if needed.",
+        "It is assumed a private lift station will not be required to serve this development, therefore lift station design is not included in this scope.",
+        "Kimley-Horn shall show any existing utility locations on the utility plans as provided by the surveyor, and research applicable utility records for locations in accordance with best available information.",
+        "Dedicated Fire Lines and Combination Domestic Water / Fire Lines, if needed, shall be designed and permitted by a licensed Fire Contractor Class I, II or V per NFPA 24 and is not included in this scope of services. Those lines will be shown on the Civil plans for permitting and reference only.",
+        "Routing of proposed dry utilities such as gas, electric, telephone or cable service connections is not included in this scope of services and should be provided by others. Kimley-Horn will meet with the project team to incorporate dry utility routing as provided to us into our utility plans for coordination purposes.",
+        "Street lighting design, photometrics and site electrical plans will be provided by the Client's Architect or Architect's MEP. Overhead electrical lines and transformers will be designed and located by the site electrical designer or local provider but will be placed on the Construction plans for coordination.",
+        "Civil Details and Construction Specifications",
+        "Kimley-Horn shall prepare construction details for site work improvements and erosion and sediment control measures. Typically, these details will correspond with City standard details. Standard FDOT details will not be provided but will be referenced throughout the plans.",
+        "**NOTE:**A specifications package is not included in this scope of services as specifications are per authority having jurisdiction (AHJ). Preparation of detailed specifications to be supplied with the architect's specifications can be provided, per request, as additional services."
+    ],
+    '150': [
+        "Prepare and submit on the Client's behalf the following permitting packages for review/approval of construction documents, and attend meetings required to obtain the following Agency approvals:",
+        "Southwest Florida Water Management District Environmental Resource Permit – Minor Modification",
+        "City of Tampa Water Department Commitment / Construction Plan Approval",
+        "Hillsborough County Environmental Protection Commission",
+        "Kimley-Horn will coordinate with the City of Tampa Development Review and coordination with the Florida Department of Transportation and the Hillsborough County departments as needed to obtain the necessary regulatory and utility approval of the site plans and associated drainage facilities. We will assist the Client with meetings necessary to gain site plan approval.",
+        "This scope does not anticipate a Geotechnical or Environmental Assessment Report, Survey, Topographic Survey, or Arborist Report be required for this permit application.",
+        "It is assumed Client will provide the needed information regarding the development program and requirements. Kimley-Horn will work with the Owner and their team to integrate the necessary design requirements into the Civil design to support entitlement, platting, and development approvals.",
+        "These permit applications will be submitted using the electronic permitting submittal system (web-based system) for the respective jurisdictions where applicable."
+    ],
+    '210': [
+        "Kimley-Horn will be available to provide miscellaneous project support at the direction of the Client. This task may include design meetings, additional permit support, permit research, or other miscellaneous tasks associated with the initial and future development of the project site. This task will also cover tasks such as design coordination meetings, scheduling, coordination with other client consultants, responses to additional rounds of agency comments."
+    ],
+    '310': [
+        "Engineering construction phase services will be performed in connection with site improvements designed by Kimley-Horn. The scope of this task assumes construction phase services will be performed concurrent and in coordination with one General Contractor for the entire project. This task does not include constructing the project in multiple phases. Kimley-Horn construction phase services will include the following:",
+        "Provide for review of shop drawings and submittals required for the site improvements controlled by our design documents. Kimley-Horn has included up to {shop_drawing_hours} hours for review of shop drawings and samples.",
+        "Review and reply to Contractor's request(s) for information during construction phase. Kimley-Horn has included up to {rfi_hours} hours for response to RFI's.",
+        "Attendance at up to {oac_meetings} one-hour each Owner-Architect-Contractor (OAC) virtual meetings.",
+        "Kimley-Horn will visit the construction site during the duration of construction for an estimated total of up to {site_visits} site visits at two-hours each to observe the progress of the civil components of work completed.",
+        "Provide up to two (2) reviews of 'as-built' documents, submitted by General Contractor's registered land surveyor.",
+        "Kimley-Horn will prepare Record Drawings for potable water and sanitary sewer only. Kimley-Horn has included up to {record_drawing_hours} hours for record drawing preparation.",
+        "Kimley-Horn will submit FDEP water and sewer clearance submittals based on as-built information provided by the Contractor.",
+        "Kimley-Horn shall submit a Letter of General Compliance for the civil related components of construction to the AHJ.",
+        "Submit Certification of Completion to the Water Management District (WMD).",
+        "The above hours allocated to the respective construction phase services may be interchangeable amongst the construction phase services outlined in this task, however the total number of hours included within the entirety of the task is up to {total_hours} hours."
+    ]
+}
+
+# ============================================================================
+# PERMIT CONFIGURATION BY COUNTY
+# ============================================================================
+
+PERMIT_MAPPING = {
+    "Pinellas": {
+        "ahj_name": "Pinellas County",
+        "wmd": "Southwest Florida Water Management District",
+        "wmd_short": "SWFWMD",
+        "default_permits": ["ahj", "wmd_erp", "sewer", "water"]
+    },
+    "Hillsborough": {
+        "ahj_name": "Hillsborough County",
+        "wmd": "Southwest Florida Water Management District", 
+        "wmd_short": "SWFWMD",
+        "default_permits": ["ahj", "wmd_erp", "sewer", "water"]
+    },
+    "Pasco": {
+        "ahj_name": "Pasco County",
+        "wmd": "Southwest Florida Water Management District",
+        "wmd_short": "SWFWMD", 
+        "default_permits": ["ahj", "wmd_erp", "sewer", "water"]
+    },
+    "Manatee": {
+        "ahj_name": "Manatee County",
+        "wmd": "Southwest Florida Water Management District",
+        "wmd_short": "SWFWMD",
+        "default_permits": ["ahj", "wmd_erp", "sewer", "water"]
+    },
+    "Sarasota": {
+        "ahj_name": "Sarasota County",
+        "wmd": "Southwest Florida Water Management District",
+        "wmd_short": "SWFWMD",
+        "default_permits": ["ahj", "wmd_erp", "sewer", "water"]
+    },
+    "Polk": {
+        "ahj_name": "Polk County",
+        "wmd": "Southwest Florida Water Management District",
+        "wmd_short": "SWFWMD",
+        "default_permits": ["ahj", "wmd_erp", "sewer", "water"]
+    }
+}
+
+# ============================================================================
+# PROPERTY LOOKUP FUNCTIONS
+# ============================================================================
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def lookup_hillsborough_property(parcel_id):
+    """
+    Lookup property from Hillsborough County via SWFWMD regional service.
+    FOLIO format: Remove dash (192605-0030 becomes 1926050030)
+    """
+    # Validate input
+    is_valid, error_msg = validate_parcel_id(parcel_id)
+    if not is_valid:
+        return {'success': False, 'error': f'Invalid input: {error_msg}'}
+    
+    session = get_resilient_session()
+    base_url = COUNTY_CONFIG["Hillsborough"]["url"]
+    timeout = COUNTY_CONFIG["Hillsborough"]["timeout"]
+    
+    # Remove dash and sanitize
+    folio_normalized = sanitize_for_sql(parcel_id.replace('-', ''))
+    
+    params = {
+        'where': f"FOLIONUM='{folio_normalized}'",
+        'outFields': '*',
+        'returnGeometry': 'false',
+        'f': 'json'
+    }
+    
+    try:
+        response = session.get(base_url, params=params, timeout=timeout)
+        response.raise_for_status()
+        data = response.json()
+        
+        # Check for ArcGIS error in response body (HTTP 200 with error)
+        if 'error' in data:
+            error = data['error']
+            return {
+                'success': False,
+                'error': f"GIS Error {error.get('code', 'Unknown')}: {error.get('message', 'Unknown error')}"
+            }
+        
+        if data.get('features') and len(data['features']) > 0:
+            attr = data['features'][0]['attributes']
+            
+            # Calculate acres from square feet if available
+            acres = None
+            sqft = attr.get('TOTLVAREA') or attr.get('ACSQFT')
+            if sqft:
+                try:
+                    acres = float(sqft) / 43560
+                except (ValueError, TypeError):
+                    pass
+            
+            return {
+                'success': True,
+                'address': attr.get('SITUSADD1', ''),
+                'city': attr.get('SCITY', 'TAMPA'),
+                'zip': attr.get('SZIP', ''),
+                'owner': attr.get('OWNERNAME', ''),
+                'land_use': strip_dor_code(attr.get('PARUSEDESC', '')),
+                'zoning': attr.get('ZONING') or 'Contact City/County for zoning info',
+                'site_area_sqft': sqft,
+                'site_area_acres': f"{acres:.2f}" if acres else None,
+                'legal_description': attr.get('LEGALDESC', ''),
+                'subdivision': attr.get('SUBDIVNAME', ''),
+                'error': None
+            }
+        else:
+            return {
+                'success': False,
+                'error': f'Folio {folio_normalized} not found in Hillsborough County database'
+            }
+    
+    except requests.exceptions.Timeout:
+        return {'success': False, 'error': 'Request timed out. The county GIS server may be slow. Please try again.'}
+    except requests.exceptions.ConnectionError:
+        return {'success': False, 'error': 'Could not connect to Hillsborough County GIS server. Please check your internet connection.'}
+    except requests.exceptions.HTTPError as e:
+        return {'success': False, 'error': f'HTTP Error {e.response.status_code}: {e.response.reason}'}
+    except ValueError as e:
+        return {'success': False, 'error': f'Invalid data format from server: {str(e)}'}
+    except Exception as e:
+        return {'success': False, 'error': f'Unexpected error: {str(e)}'}
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def lookup_manatee_property(parcel_id):
+    """
+    Lookup property from Manatee County.
+    Excellent data completeness - all fields in single layer.
+    """
+    # Validate input
+    is_valid, error_msg = validate_parcel_id(parcel_id)
+    if not is_valid:
+        return {'success': False, 'error': f'Invalid input: {error_msg}'}
+    
+    session = get_resilient_session()
+    base_url = COUNTY_CONFIG["Manatee"]["url"]
+    timeout = COUNTY_CONFIG["Manatee"]["timeout"]
+    
+    # Sanitize input
+    sanitized_id = sanitize_for_sql(parcel_id)
+    
+    params = {
+        'where': f"PIN='{sanitized_id}'",
+        'outFields': '*',
+        'returnGeometry': 'false',
+        'f': 'json'
+    }
+    
+    try:
+        response = session.get(base_url, params=params, timeout=timeout)
+        response.raise_for_status()
+        data = response.json()
+        
+        # Check for ArcGIS error in response body
+        if 'error' in data:
+            error = data['error']
+            return {
+                'success': False,
+                'error': f"GIS Error {error.get('code', 'Unknown')}: {error.get('message', 'Unknown error')}"
+            }
+        
+        if data.get('features') and len(data['features']) > 0:
+            attr = data['features'][0]['attributes']
+            
+            # Calculate acres from square feet if available
+            acres = None
+            sqft = attr.get('TOTAL_SQFT') or attr.get('CALC_ACRES')
+            if sqft and 'SQFT' in str(sqft):
+                try:
+                    acres = float(sqft) / 43560
+                except (ValueError, TypeError):
+                    pass
+            elif attr.get('CALC_ACRES'):
+                try:
+                    acres = float(attr.get('CALC_ACRES'))
+                    sqft = acres * 43560
+                except (ValueError, TypeError):
+                    pass
+            
+            return {
+                'success': True,
+                'address': attr.get('PRIMARY_ADDRESS', ''),
+                'city': attr.get('PROP_CITYNAME', ''),
+                'zip': attr.get('PROP_ZIP', ''),
+                'owner': attr.get('OWNER', ''),
+                'land_use': strip_dor_code(attr.get('FUTURE_LAND_USE', '')),
+                'zoning': attr.get('ZONING', ''),
+                'site_area_sqft': sqft,
+                'site_area_acres': f"{acres:.2f}" if acres else None,
+                'legal_description': attr.get('LEGAL_DESCRIPTION', ''),
+                'subdivision': attr.get('SUBDIVISION', ''),
+                'error': None
+            }
+        else:
+            return {'success': False, 'error': 'Folio ID not found in Manatee County database'}
+    
+    except requests.exceptions.Timeout:
+        return {'success': False, 'error': 'Request timed out. The county GIS server may be slow. Please try again.'}
+    except requests.exceptions.ConnectionError:
+        return {'success': False, 'error': 'Could not connect to Manatee County GIS server. Please check your internet connection.'}
+    except requests.exceptions.HTTPError as e:
+        return {'success': False, 'error': f'HTTP Error {e.response.status_code}: {e.response.reason}'}
+    except ValueError as e:
+        return {'success': False, 'error': f'Invalid data format from server: {str(e)}'}
+    except Exception as e:
+        return {'success': False, 'error': f'Unexpected error: {str(e)}'}
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def lookup_pinellas_property(parcel_id):
+    """
+    Lookup property from Pinellas County.
+    Uses Accela/AccelaAddressParcel layer per Property Lookup guide.
+    Note: May require join with Site Address Points layer for complete data.
+    """
+    # Validate input
+    is_valid, error_msg = validate_parcel_id(parcel_id)
+    if not is_valid:
+        return {'success': False, 'error': f'Invalid input: {error_msg}'}
+    
+    session = get_resilient_session()
+    base_url = COUNTY_CONFIG["Pinellas"]["url"]
+    timeout = COUNTY_CONFIG["Pinellas"]["timeout"]
+    
+    # Sanitize input
+    sanitized_id = sanitize_for_sql(parcel_id)
+    
+    # Use correct field name from config
+    field_name = COUNTY_CONFIG["Pinellas"]["field"]
+    params = {
+        'where': f"{field_name}='{sanitized_id}'",
+        'outFields': '*',
+        'returnGeometry': 'true',  # Changed to true to get geometry for zoning lookup
+        'f': 'json'
+    }
+    
+    try:
+        response = session.get(base_url, params=params, timeout=timeout)
+        response.raise_for_status()
+        data = response.json()
+        
+        # Check for ArcGIS error in response body
+        if 'error' in data:
+            error = data['error']
+            return {
+                'success': False,
+                'error': f"GIS Error {error.get('code', 'Unknown')}: {error.get('message', 'Unknown error')}"
+            }
+        
+        if data.get('features') and len(data['features']) > 0:
+            feature = data['features'][0]
+            attr = feature['attributes']
+            geometry = feature.get('geometry', {})
+            
+            # Get acreage from web scraping (proven method)
+            acres = None
+            sqft = None
+            scraped_result = scrape_pinellas_property(parcel_id)
+            if scraped_result.get('success') and scraped_result.get('site_area_acres'):
+                try:
+                    acres = float(scraped_result.get('site_area_acres'))
+                    sqft = acres * 43560
+                except (ValueError, TypeError):
+                    pass
+            
+            # Per Property Lookup guide, Pinellas fields are:
+            # Address: LEGAL + join needed
+            # City: JURISDICTION  
+            # Owner: Join with RP_ALL_OWNERS needed
+            # Future Land Use: PROPOSEDLANDUSE
+            # Zoning: ZONECLASS
+            
+            address = attr.get('LEGAL') or attr.get('SITEADDRESS') or ''
+            city = attr.get('JURISDICTION') or attr.get('CITY') or ''
+            zip_code = attr.get('ZIP') or attr.get('ZIPCODE') or ''
+            owner = attr.get('OWNERNAME') or attr.get('OWNER') or attr.get('NAME') or ''
+            land_use = attr.get('PROPOSEDLANDUSE') or attr.get('LANDUSE') or ''
+            zoning = attr.get('ZONECLASS') or attr.get('ZONING') or ''
+            
+            # Check if API returned empty/incomplete data (need at least address OR owner)
+            has_useful_data = bool(address and city) or bool(owner and address)
+            
+            if not has_useful_data:
+                # Fallback to PCPAO API for complete data
+                scraped_result = scrape_pinellas_property(parcel_id)
+                if scraped_result['success']:
+                    return scraped_result
+                # If PCPAO API also fails, return what we have from ArcGIS (even if empty)
+            
+            return {
+                'success': True,
+                'address': address,
+                'city': city,
+                'zip': str(zip_code) if zip_code else '',
+                'owner': owner,
+                'land_use': strip_dor_code(land_use),
+                'zoning': zoning or 'Contact City/County for zoning info',
+                'site_area_sqft': sqft,
+                'site_area_acres': f"{acres:.2f}" if acres else None,
+                'legal_description': attr.get('LEGAL_DESC') or attr.get('LEGALDESC') or '',
+                'subdivision': attr.get('SUBDIVISION') or attr.get('SUBDIV') or '',
+                'geometry': geometry,  # Store geometry for zoning lookup
+                'error': None
+            }
+        else:
+            # Parcel not found in API - try web scraping
+            scraped_result = scrape_pinellas_property(parcel_id)
+            if scraped_result['success']:
+                return scraped_result
+            return {'success': False, 'error': 'Parcel ID not found in Pinellas County database'}
+    
+    except requests.exceptions.Timeout:
+        return {'success': False, 'error': 'Request timed out. The county GIS server may be slow. Please try again.'}
+    except requests.exceptions.ConnectionError:
+        return {'success': False, 'error': 'Could not connect to Pinellas County GIS server. Please check your internet connection.'}
+    except requests.exceptions.HTTPError as e:
+        return {'success': False, 'error': f'HTTP Error {e.response.status_code}: {e.response.reason}'}
+    except ValueError as e:
+        return {'success': False, 'error': f'Invalid data format from server: {str(e)}'}
+    except Exception as e:
+        return {'success': False, 'error': f'Unexpected error: {str(e)}'}
+
+
+def lookup_pinellas_zoning(city_name, address):
+    """
+    Lookup zoning for Pinellas County using the property address.
+    For St. Petersburg: Queries St. Pete zoning API
+    
+    Args:
+        city_name: City name (e.g., "St. Petersburg")
+        address: Property address from property lookup (e.g., "200 CENTRAL AVE")
+        
+    Returns:
+        dict with zoning_code, zoning_description, future_land_use, acreage
+    """
+    if not address:
+        return {'success': False, 'error': 'Address required for zoning lookup'}
+    
+    session = get_resilient_session()
+    
+    # St. Petersburg zoning lookup
+    if 'St. Petersburg' in city_name or 'St Petersburg' in city_name:
+        try:
+            # Use the Find/Search endpoint that the web map uses
+            # Based on the map URL pattern: find=200%20CENTRAL%20AVE
+            search_url = "https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates"
+            
+            # Geocode the address to get coordinates
+            geocode_params = {
+                'SingleLine': f"{address}, St. Petersburg, FL",
+                'f': 'json',
+                'outFields': '*'
+            }
+            
+            geocode_response = session.get(search_url, params=geocode_params, timeout=15)
+            geocode_data = geocode_response.json()
+            
+            if not geocode_data.get('candidates'):
+                return {'success': False, 'error': 'Could not geocode address'}
+            
+            # Get coordinates from first candidate
+            location = geocode_data['candidates'][0]['location']
+            x, y = location['x'], location['y']
+            
+            # Now query zoning layer with those coordinates
+            zoning_url = "https://egis.stpete.org/arcgis/rest/services/ServicesDSD/Zoning/MapServer/2/query"
+            zoning_params = {
+                'geometry': f"{x},{y}",
+                'geometryType': 'esriGeometryPoint',
+                'inSR': '4326',  # WGS84 from geocoder
+                'spatialRel': 'esriSpatialRelIntersects',
+                'outFields': 'ZONECLASS,ZONEDESC,SHAPE.AREA',
+                'returnGeometry': 'false',
+                'f': 'json'
+            }
+            
+            zoning_response = session.get(zoning_url, params=zoning_params, timeout=15)
+            zoning_data = zoning_response.json()
+            
+            if zoning_data.get('features'):
+                attrs = zoning_data['features'][0]['attributes']
+                
+                # Get zoning code and description from lookup table (renderer labels)
+                zoning_code = attrs.get('ZONECLASS', '')
+                zoning_desc = ZONING_DESCRIPTIONS.get(zoning_code, attrs.get('ZONEDESC', ''))  # Lookup first, fallback to API
+                
+                # Query Future Land Use layer
+                flu_url = "https://egis.stpete.org/arcgis/rest/services/ServicesDSD/Zoning/MapServer/4/query"
+                flu_params = {
+                    'geometry': f"{x},{y}",
+                    'geometryType': 'esriGeometryPoint',
+                    'inSR': '4326',
+                    'spatialRel': 'esriSpatialRelIntersects',
+                    'outFields': '*',  # Get all fields to capture description
+                    'returnGeometry': 'false',
+                    'f': 'json'
+                }
+                
+                flu_response = session.get(flu_url, params=flu_params, timeout=15)
+                flu_data = flu_response.json()
+                flu_code = ''
+                flu_desc = ''
+                if flu_data.get('features'):
+                    flu_attrs = flu_data['features'][0].get('attributes', {})
+                    flu_code = flu_attrs.get('LANDUSECODE', '')
+                    # Get description from lookup table (renderer labels)
+                    flu_desc = FLU_DESCRIPTIONS.get(flu_code, '')
+                
+                return {
+                    'success': True,
+                    'zoning_code': zoning_code,
+                    'zoning_description': zoning_desc,
+                    'future_land_use': flu_code,
+                    'future_land_use_description': flu_desc,
+                    'acreage': None,  # Not using SHAPE.AREA anymore (was zoning district area, not parcel)
+                    'jurisdiction': 'St. Petersburg'
+                }
+            else:
+                return {'success': False, 'error': 'No zoning found at address location'}
+                
+        except Exception as e:
+            return {'success': False, 'error': f'Zoning lookup error: {str(e)}'}
+    
+    # Other cities
+    return {
+        'success': True,
+        'zoning_code': 'Contact City/County for zoning',
+        'zoning_description': None,
+        'future_land_use': None,
+        'acreage': None,
+        'jurisdiction': city_name,
+        'note': 'City-specific zoning data not available via API'
+    }
+
+
+
+
+def scrape_pinellas_property(parcel_id):
+    """
+    Query Pinellas County Property Appraiser searchProperty API.
+    This is the backend API that the PCPAO website uses.
+    URL: https://www.pcpao.gov/dal/quicksearch/searchProperty
+    """
+    session = get_resilient_session()
+    
+    url = "https://www.pcpao.gov/dal/quicksearch/searchProperty"
+    
+    # Normalize Pinellas parcel ID format
+    # Input might be: 193117731660010010 (18 digits)
+    # Need format: 19-31-17-73166-001-0010 (with dashes)
+    normalized_parcel = parcel_id.strip()
+    
+    # If no dashes and 18 digits, add dashes in Pinellas format
+    if '-' not in normalized_parcel and len(normalized_parcel) == 18:
+        # Format: XX-XX-XX-XXXXX-XXX-XXXX
+        normalized_parcel = f"{normalized_parcel[0:2]}-{normalized_parcel[2:4]}-{normalized_parcel[4:6]}-{normalized_parcel[6:11]}-{normalized_parcel[11:14]}-{normalized_parcel[14:18]}"
+    
+    # Build the POST data - mimics the DataTables request format
+    payload = {
+        'draw': '1',
+        'start': '0',
+        'length': '10',
+        'search[value]': '',
+        'search[regex]': 'false',
+        'input': normalized_parcel,
+        'searchsort': 'parcel_number',
+        'url': 'https://www.pcpao.gov'
+    }
+    
+    # Add column definitions (required by DataTables API)
+    for i in range(11):
+        payload[f'columns[{i}][data]'] = str(i)
+        payload[f'columns[{i}][name]'] = ''
+        payload[f'columns[{i}][searchable]'] = 'true'
+        payload[f'columns[{i}][orderable]'] = 'true' if i >= 2 else 'false'
+        payload[f'columns[{i}][search][value]'] = ''
+        payload[f'columns[{i}][search][regex]'] = 'false'
+    
+    try:
+        response = session.post(url, data=payload, timeout=15)
+        response.raise_for_status()
+        
+        data = response.json()
+        
+        # Check if we got results
+        if data.get('recordsTotal', 0) == 0:
+            return {'success': False, 'error': 'Parcel not found in PCPAO database'}
+        
+        # Parse the HTML response within the JSON
+        # The API returns HTML snippets in the 'data' array
+        if not data.get('data') or len(data['data']) == 0:
+            return {'success': False, 'error': 'No property data returned'}
+        
+        # Get first result (data[0] contains array of HTML snippets for each column)
+        result_row = data['data'][0]
+        
+        # Parse the HTML snippets to extract clean data
+        try:
+            from bs4 import BeautifulSoup
+        except ImportError:
+            return {'success': False, 'error': 'BeautifulSoup not installed - check requirements.txt'}
+        
+        # Extract data from HTML snippets
+        # Column 2: Owner name
+        owner_html = result_row[2] if len(result_row) > 2 else ''
+        owner_soup = BeautifulSoup(owner_html, 'lxml')
+        owner = owner_soup.get_text(strip=True)
+        
+        # Column 4: Parcel number (to verify)
+        parcel_html = result_row[4] if len(result_row) > 4 else ''
+        parcel_soup = BeautifulSoup(parcel_html, 'lxml')
+        parcel = parcel_soup.get_text(strip=True)
+        
+        # Column 5: Address
+        address_html = result_row[5] if len(result_row) > 5 else ''
+        address_soup = BeautifulSoup(address_html, 'lxml')
+        address = address_soup.get_text(strip=True)
+        
+        # Column 6: Tax District
+        tax_dist_html = result_row[6] if len(result_row) > 6 else ''
+        tax_dist_soup = BeautifulSoup(tax_dist_html, 'lxml')
+        tax_district = tax_dist_soup.get_text(strip=True)
+        
+        # Column 7: Property Use / DOR Code
+        use_html = result_row[7] if len(result_row) > 7 else ''
+        use_soup = BeautifulSoup(use_html, 'lxml')
+        property_use = use_soup.get_text(strip=True)
+        
+        # Column 8: Legal Description
+        legal_html = result_row[8] if len(result_row) > 8 else ''
+        legal_soup = BeautifulSoup(legal_html, 'lxml')
+        legal_desc = legal_soup.get_text(strip=True)
+        
+        # Extract city from tax district or address
+        # Pinellas cities: Clearwater, St. Petersburg, Largo, Pinellas Park, etc.
+        city = ''
+        if 'CLEARWATER' in address.upper():
+            city = 'Clearwater'
+        elif 'ST. PETERSBURG' in address.upper() or 'ST PETERSBURG' in address.upper():
+            city = 'St. Petersburg'
+        elif 'LARGO' in address.upper():
+            city = 'Largo'
+        elif 'PINELLAS PARK' in address.upper():
+            city = 'Pinellas Park'
+        else:
+            city = 'Unincorporated Pinellas'
+        
+        # Get acreage from detail page using proven web scraping method
+        sqft = None
+        acres = None
+        
+        try:
+            # Strap transformation: swap first and third segments
+            # Parcel: 19-31-17-73166-001-0010 → Strap: 173119731660010010
+            parts = normalized_parcel.split('-')
+            if len(parts) == 6:
+                parts[0], parts[2] = parts[2], parts[0]  # Swap positions 0 and 2
+                strap = ''.join(parts)
+            else:
+                strap = normalized_parcel.replace('-', '')
+            
+            # Build URL with all required parameters (exact format from working browser URL)
+            detail_url = (
+                f"https://www.pcpao.gov/property-details?"
+                f"s={strap}&"
+                f"input={normalized_parcel}&"
+                f"search_option=parcel_number&"
+                f"start=0&"
+                f"length=10&"
+                f"order_column=5&"
+                f"order_type=asc&"
+                f"xmin=-9199324.569348868&"
+                f"ymin=3219932.705325626&"
+                f"xmax=-9198697.546851128&"
+                f"ymax=3220279.657774374&"
+                f"basemap=BaseMapParcelAerials&"
+                f"sales=&"
+                f"scale=2256.994353&"
+                f"parcel={normalized_parcel}"
+            )
+            
+            # Fetch page (exact pattern from working test script)
+            html = session.get(detail_url, timeout=30).text
+            
+            # Parse and extract text
+            soup = BeautifulSoup(html, "html.parser")
+            text = soup.get_text(" ", strip=True)
+            
+            # Match pattern: "Land Area: ≅ 59,560 sf | ≅ 1.36 acres"
+            m = re.search(r"Land Area:\s*≅\s*([\d,]+)\s*sf\s*\|\s*≅\s*([\d.]+)\s*acres", text)
+            if m:
+                sqft = int(m.group(1).replace(",", ""))
+                acres = float(m.group(2))
+        except Exception:
+            pass  # If detail page fails, sqft and acres remain None
+        
+        return {
+            'success': True,
+            'address': address,
+            'city': city,
+            'zip': '',  # Not provided in search results
+            'owner': owner,
+            'land_use': strip_dor_code(property_use),
+            'zoning': 'Contact City/County for zoning info',  # Not in search results
+            'site_area_sqft': sqft,
+            'site_area_acres': f"{acres:.2f}" if acres else None,
+            'legal_description': legal_desc,
+            'subdivision': '',
+            'error': None
+        }
+    
+    except requests.exceptions.Timeout:
+        return {'success': False, 'error': 'Request timed out accessing Pinellas Property Appraiser API.'}
+    except requests.exceptions.ConnectionError:
+        return {'success': False, 'error': 'Could not connect to Pinellas Property Appraiser API.'}
+    except requests.exceptions.HTTPError as e:
+        return {'success': False, 'error': f'HTTP Error {e.response.status_code}: {e.response.reason}'}
+    except Exception as e:
+        return {'success': False, 'error': f'Error querying PCPAO API: {str(e)}'}
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def lookup_pasco_property(parcel_id):
+    """
+    Lookup property from Pasco County.
+    Uses Pasco County GIS service.
+    """
+    # Validate input
+    is_valid, error_msg = validate_parcel_id(parcel_id)
+    if not is_valid:
+        return {'success': False, 'error': f'Invalid input: {error_msg}'}
+    
+    session = get_resilient_session()
+    base_url = COUNTY_CONFIG["Pasco"]["url"]
+    timeout = COUNTY_CONFIG["Pasco"]["timeout"]
+    
+    # Sanitize input
+    sanitized_id = sanitize_for_sql(parcel_id)
+    
+    params = {
+        'where': f"PARCEL_ID='{sanitized_id}' OR FOLIO='{sanitized_id}'",
+        'outFields': '*',
+        'returnGeometry': 'false',
+        'f': 'json'
+    }
+    
+    try:
+        response = session.get(base_url, params=params, timeout=timeout)
+        response.raise_for_status()
+        data = response.json()
+        
+        # Check for ArcGIS error in response body
+        if 'error' in data:
+            error = data['error']
+            return {
+                'success': False,
+                'error': f"GIS Error {error.get('code', 'Unknown')}: {error.get('message', 'Unknown error')}"
+            }
+        
+        if data.get('features') and len(data['features']) > 0:
+            attr = data['features'][0]['attributes']
+            
+            # Calculate acres from square feet if available
+            acres = None
+            sqft = attr.get('LANDAREA') or attr.get('TOTAL_AREA')
+            if sqft:
+                try:
+                    acres = float(sqft) / 43560
+                except (ValueError, TypeError):
+                    pass
+            
+            return {
+                'success': True,
+                'address': attr.get('SITUS_ADDRESS', '') or attr.get('SITEADDR', ''),
+                'city': attr.get('SITUS_CITY', ''),
+                'zip': attr.get('SITUS_ZIP', ''),
+                'owner': attr.get('OWNER_NAME', '') or attr.get('OWNER1', ''),
+                'land_use': strip_dor_code(attr.get('LANDUSE_DESC', '')),
+                'zoning': attr.get('ZONING') or 'Contact City/County for zoning info',
+                'site_area_sqft': sqft,
+                'site_area_acres': f"{acres:.2f}" if acres else None,
+                'legal_description': attr.get('LEGAL_DESC', ''),
+                'subdivision': attr.get('SUBDIVISION', ''),
+                'error': None
+            }
+        else:
+            return {'success': False, 'error': 'Parcel ID not found in Pasco County database'}
+    
+    except requests.exceptions.Timeout:
+        return {'success': False, 'error': 'Request timed out. The county GIS server may be slow. Please try again.'}
+    except requests.exceptions.ConnectionError:
+        return {'success': False, 'error': 'Could not connect to Pasco County GIS server. Please check your internet connection.'}
+    except requests.exceptions.HTTPError as e:
+        return {'success': False, 'error': f'HTTP Error {e.response.status_code}: {e.response.reason}'}
+    except ValueError as e:
+        return {'success': False, 'error': f'Invalid data format from server: {str(e)}'}
+    except Exception as e:
+        return {'success': False, 'error': f'Unexpected error: {str(e)}'}
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def lookup_sarasota_property(parcel_id):
+    """
+    Lookup property from Sarasota County.
+    Uses Sarasota County Property Appraiser GIS service.
+    """
+    # Validate input
+    is_valid, error_msg = validate_parcel_id(parcel_id)
+    if not is_valid:
+        return {'success': False, 'error': f'Invalid input: {error_msg}'}
+    
+    session = get_resilient_session()
+    base_url = COUNTY_CONFIG["Sarasota"]["url"]
+    timeout = COUNTY_CONFIG["Sarasota"]["timeout"]
+    
+    # Sanitize input
+    sanitized_id = sanitize_for_sql(parcel_id)
+    
+    params = {
+        'where': f"PARCELNO='{sanitized_id}' OR PARCEL_ID='{sanitized_id}'",
+        'outFields': '*',
+        'returnGeometry': 'false',
+        'f': 'json'
+    }
+    
+    try:
+        response = session.get(base_url, params=params, timeout=timeout)
+        response.raise_for_status()
+        data = response.json()
+        
+        # Check for ArcGIS error in response body
+        if 'error' in data:
+            error = data['error']
+            return {
+                'success': False,
+                'error': f"GIS Error {error.get('code', 'Unknown')}: {error.get('message', 'Unknown error')}"
+            }
+        
+        if data.get('features') and len(data['features']) > 0:
+            attr = data['features'][0]['attributes']
+            
+            # Calculate acres from square feet if available
+            acres = None
+            sqft = attr.get('LOT_SIZE') or attr.get('TOTAL_AREA')
+            if sqft:
+                try:
+                    acres = float(sqft) / 43560
+                except (ValueError, TypeError):
+                    pass
+            
+            return {
+                'success': True,
+                'address': attr.get('SITUS_ADDRESS', '') or attr.get('PHY_ADDR', ''),
+                'city': attr.get('SITUS_CITY', '') or attr.get('PHY_CITY', ''),
+                'zip': attr.get('SITUS_ZIP', '') or attr.get('PHY_ZIP', ''),
+                'owner': attr.get('OWNER_NAME', '') or attr.get('OWNNAME1', ''),
+                'land_use': strip_dor_code(attr.get('LANDUSE', '') or attr.get('DOR_UC', '')),
+                'zoning': attr.get('ZONING') or 'Contact City/County for zoning info',
+                'site_area_sqft': sqft,
+                'site_area_acres': f"{acres:.2f}" if acres else None,
+                'legal_description': attr.get('LEGAL', ''),
+                'subdivision': attr.get('SUBDIVISION', '') or attr.get('SUBDIV', ''),
+                'error': None
+            }
+        else:
+            return {'success': False, 'error': 'Parcel ID not found in Sarasota County database'}
+    
+    except requests.exceptions.Timeout:
+        return {'success': False, 'error': 'Request timed out. The county GIS server may be slow. Please try again.'}
+    except requests.exceptions.ConnectionError:
+        return {'success': False, 'error': 'Could not connect to Sarasota County GIS server. Please check your internet connection.'}
+    except requests.exceptions.HTTPError as e:
+        return {'success': False, 'error': f'HTTP Error {e.response.status_code}: {e.response.reason}'}
+    except ValueError as e:
+        return {'success': False, 'error': f'Invalid data format from server: {str(e)}'}
+    except Exception as e:
+        return {'success': False, 'error': f'Unexpected error: {str(e)}'}
+
+
+def lookup_property_info(county, parcel_id):
+    """Lookup property info based on county."""
+    if county == "Hillsborough":
+        return lookup_hillsborough_property(parcel_id)
+    elif county == "Manatee":
+        return lookup_manatee_property(parcel_id)
+    elif county == "Pinellas":
+        return lookup_pinellas_property(parcel_id)
+    elif county == "Pasco":
+        return lookup_pasco_property(parcel_id)
+    elif county == "Sarasota":
+        return lookup_sarasota_property(parcel_id)
+    else:
+        return {'success': False, 'error': f'{county} County lookup not yet implemented. Please enter information manually.'}
+
+# ============================================================================
 # DOCUMENT GENERATION FUNCTIONS
 # ============================================================================
 
@@ -2575,30 +3451,19 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("🏗️ Development Services Proposal Generator")
-st.markdown("---")
-
-# Create tabs
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📍 Property & Client",
-    "📋 Project & Assumptions",
-    "✅ Scope of Services",
-    "📧 Permitting & Summary",
-    "💰 Invoice & Billing"
-])
-
 
 # ============================================================================
-# STREAMLIT UI WITH TABS
+# STREAMLIT UI
 # ============================================================================
 
 st.title("📋 Development Services Proposal Generator")
 st.caption("Kimley-Horn - Tampa Bay Counties (Pinellas, Hillsborough, Pasco)")
 
-tab1, tab2, tab3, tab4 = st.tabs([
-    "🏠 Property & Client Info",
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "🏠 Property & Client",
+    "📝 Project Details",
     "📋 Scope of Services",
-    "✓ Assumptions & Permits",
+    "🔍 Permitting & Summary",
     "💰 Invoice & Generate"
 ])
 
@@ -2887,8 +3752,63 @@ with tab1:
             st.info("ℹ️ Click '🗺️ Lookup Zoning & Future Land Use' button to get detailed zoning data (St. Petersburg only)")
     else:
         st.info("Click '🔍 Lookup Property Info' to start")
-# TAB 2: Scope of Services
+# TAB 2: Project Details (Assumptions)
 with tab2:
+        st.subheader("Project Understanding Assumptions")
+        st.markdown("Check the assumptions that apply to this project. These will appear in the Project Understanding section.")
+        
+        col_assume1, col_assume2 = st.columns(2)
+        
+        with col_assume1:
+            assume_survey = st.checkbox(
+                "Boundary, topographic, and tree survey provided by Client",
+                value=True
+            )
+            assume_environmental = st.checkbox(
+                "Environmental/Biological assessment provided"
+            )
+            assume_geotech = st.checkbox(
+                "Geotechnical investigation report provided"
+            )
+            assume_zoning = st.checkbox(
+                "Use is consistent with future land use and zoning",
+                value=True
+            )
+            assume_utilities = st.checkbox(
+                "Utilities available at project boundary with adequate capacity",
+                value=True
+            )
+        
+        with col_assume2:
+            assume_offsite = st.checkbox(
+                "Offsite roadway improvements not included",
+                value=True
+            )
+            assume_traffic = st.checkbox(
+                "Traffic study provided by others or not required",
+                value=True
+            )
+            assume_one_phase = st.checkbox(
+                "Project constructed in one (1) phase",
+                value=True
+            )
+            
+            col_plan1, col_plan2 = st.columns([1, 2])
+            with col_plan1:
+                has_conceptual_plan = st.checkbox("Based on conceptual plan")
+            with col_plan2:
+                conceptual_plan_date = st.text_input(
+                    "Plan Date",
+                    placeholder="e.g., 10/15/2024",
+                    disabled=not has_conceptual_plan,
+                    label_visibility="collapsed"
+                )
+    
+    
+    # TAB 3: Scope of Services
+
+# TAB 3: Scope of Services
+with tab3:
         st.subheader("Scope of Services")
         st.markdown("Select the tasks to include, enter the fee, and choose the fee type for each task.")
         
@@ -3064,9 +3984,10 @@ with tab2:
     
     
     
+    # TAB 4: Permitting & Summary
 
-# TAB 3: Assumptions & Permits
-with tab3:
+# TAB 4: Permitting & Summary
+with tab4:
         st.subheader("Permitting Requirements")
         st.markdown("Select the permits/approvals required for this project (applies to Task 150 - Civil Permitting):")
         
@@ -3186,9 +4107,10 @@ with tab3:
             st.info("👆 Select at least one task in the Scope of Services tab")
     
     
+    # TAB 5: Invoice/Billing & Generate
 
-# TAB 4: Invoice & Generate
-with tab4:
+# TAB 5: Invoice & Generate
+with tab5:
         st.subheader("Invoice & Billing Information")
         col_inv1, col_inv2 = st.columns(2)
         
@@ -3367,6 +4289,7 @@ with tab4:
                     st.error(f"❌ **Error:** {str(e)}")
                     with st.expander("Show Error Details"):
                         st.exception(e)
+    
 
 st.markdown("---")
 st.caption("Development Services Proposal Generator | Kimley-Horn - Tampa Bay Counties")
