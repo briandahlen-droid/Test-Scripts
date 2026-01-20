@@ -20,6 +20,120 @@ from urllib3.util.retry import Retry
 st.set_page_config(page_title="Proposal Generator", page_icon="📋", layout="wide")
 
 # ============================================================================
+# CUSTOM STYLING FOR LIGHT THEME
+# ============================================================================
+
+st.markdown("""
+<style>
+    /* Input fields - clear visible borders */
+    .stTextInput > div > div > input,
+    .stSelectbox > div > div > select,
+    .stTextArea > div > div > textarea,
+    .stNumberInput > div > div > input {
+        background-color: #FFFFFF !important;
+        border: 2px solid #D0D5DD !important;
+        border-radius: 6px !important;
+        color: #262730 !important;
+    }
+    
+    /* Input field hover state */
+    .stTextInput > div > div > input:hover,
+    .stSelectbox > div > div > select:hover,
+    .stTextArea > div > div > textarea:hover,
+    .stNumberInput > div > div > input:hover {
+        border-color: #9CA3AF !important;
+    }
+    
+    /* Input field focus state */
+    .stTextInput > div > div > input:focus,
+    .stSelectbox > div > div > select:focus,
+    .stTextArea > div > div > textarea:focus,
+    .stNumberInput > div > div > input:focus {
+        border-color: #A20C33 !important;
+        box-shadow: 0 0 0 3px rgba(162, 12, 51, 0.1) !important;
+    }
+    
+    /* Auto-filled fields - slight background tint */
+    .stTextInput > div > div > input[value]:not([value=""]) {
+        background-color: #FAFAFA !important;
+    }
+    
+    /* Labels - make required fields bold */
+    label[data-testid="stWidgetLabel"] {
+        color: #262730 !important;
+        font-weight: 500 !important;
+        font-size: 14px !important;
+    }
+    
+    /* Better section headers */
+    .stSubheader {
+        color: #262730 !important;
+        font-weight: 600 !important;
+        margin-top: 20px !important;
+    }
+    
+    /* Tabs styling */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 0px;
+        border-bottom: 2px solid #E0E0E0;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        padding: 12px 24px;
+        color: #6C757D;
+        font-weight: 500;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        color: #A20C33 !important;
+        border-bottom-color: #A20C33 !important;
+        font-weight: 600 !important;
+    }
+    
+    /* Primary buttons - Kimley-Horn red */
+    .stButton > button[kind="primary"] {
+        background-color: #A20C33 !important;
+        color: white !important;
+        border: none !important;
+        font-weight: 600 !important;
+    }
+    
+    .stButton > button[kind="primary"]:hover {
+        background-color: #8A0A2B !important;
+        box-shadow: 0 4px 12px rgba(162, 12, 51, 0.3) !important;
+    }
+    
+    /* Secondary buttons */
+    .stButton > button[kind="secondary"] {
+        background-color: white !important;
+        color: #A20C33 !important;
+        border: 2px solid #A20C33 !important;
+        font-weight: 600 !important;
+    }
+    
+    .stButton > button[kind="secondary"]:hover {
+        background-color: #FFF5F7 !important;
+    }
+    
+    /* Info boxes */
+    .stAlert {
+        border-radius: 8px !important;
+    }
+    
+    /* Expanders */
+    .streamlit-expanderHeader {
+        background-color: #F9FAFB !important;
+        border-radius: 6px !important;
+    }
+    
+    /* Checkboxes */
+    .stCheckbox > label {
+        color: #262730 !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# ============================================================================
 # PINELLAS CITY NAME MAPPING
 # ============================================================================
 
