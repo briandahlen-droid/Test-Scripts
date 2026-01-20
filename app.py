@@ -2757,51 +2757,74 @@ with tab1:
         )
         st.session_state['property_site_acres'] = property_site_acres
     
-    # Zoning & Site Data Lookup Button (for Pinellas County)
-    if st.session_state.get('county') == 'Pinellas' and st.session_state.get('parcel_id'):
+    # Zoning & FLU Lookup Button (for all Tampa Bay counties)
+    current_county = st.session_state.get('county')
+    
+    if current_county in ['Pinellas', 'Hillsborough', 'Pasco'] and st.session_state.get('parcel_id'):
         st.markdown("---")
-        st.caption("🔍 **For Pinellas County:** Use the city shown above to lookup detailed zoning and site area data")
         
-        if st.button("🗺️ Lookup Zoning & Site Data", type="secondary"):
+        if current_county == 'Pinellas':
+            st.caption("🔍 **For Pinellas County:** Lookup detailed zoning and Future Land Use from city-specific GIS layers (St. Petersburg, Clearwater, Largo, and unincorporated areas)")
+        elif current_county == 'Hillsborough':
+            st.caption("🔍 **For Hillsborough County:** Lookup detailed zoning and Future Land Use from county GIS layers")
+        else:  # Pasco
+            st.caption("🔍 **For Pasco County:** Lookup detailed zoning and Future Land Use from county GIS layers")
+        
+        if st.button("🗺️ Lookup Zoning & Future Land Use", type="secondary"):
             city = st.session_state.get('city', '')
             address = st.session_state.get('lookup_address', '')
             
             if not address:
                 st.error("❌ Please run Property Lookup first to get the address")
             else:
-                with st.spinner(f"Fetching zoning data for {address} in {city}..."):
-                    zoning_result = lookup_pinellas_zoning(city, address)
-                    
-                    if zoning_result.get('success'):
-                        # Update editable fields with zoning data
-                        if zoning_result.get('zoning_code'):
-                            if zoning_result.get('zoning_description'):
-                                st.session_state['property_zoning'] = f"{zoning_result.get('zoning_code')} - {zoning_result.get('zoning_description')}"
-                            else:
-                                st.session_state['property_zoning'] = zoning_result.get('zoning_code', '')
-                        
-                        if zoning_result.get('future_land_use'):
-                            if zoning_result.get('future_land_use_description'):
-                                st.session_state['property_land_use'] = f"{zoning_result.get('future_land_use')} - {zoning_result.get('future_land_use_description')}"
-                            else:
-                                st.session_state['property_land_use'] = zoning_result.get('future_land_use', '')
-                        
-                        st.success(f"✅ Zoning data updated!")
-                        
-                        # Show details if available
+                if current_county == 'Pinellas':
+                    with st.spinner(f"Fetching zoning data for {address} in {city}..."):
+                        zoning_result = lookup_pinellas_zoning(city, address)
+                
+                elif current_county == 'Hillsborough':
+                    geom = st.session_state.get('hillsborough_geometry')
+                    with st.spinner(f"Fetching zoning/FLU data for {address}..."):
+                        zoning_result = lookup_hillsborough_zoning_flu(address, geometry=geom)
+                
+                else:  # Pasco
+                    geom = st.session_state.get('pasco_geometry')
+                    with st.spinner(f"Fetching zoning/FLU data for {address}..."):
+                        zoning_result = lookup_pasco_zoning_flu(address, geometry=geom)
+                
+                if zoning_result.get('success'):
+                    # Update zoning
+                    if zoning_result.get('zoning_code'):
                         if zoning_result.get('zoning_description'):
-                            st.info(f"**Zoning:** {zoning_result.get('zoning_code', '')} - {zoning_result.get('zoning_description', '')}")
-                        
+                            st.session_state['property_zoning'] = f"{zoning_result.get('zoning_code')} - {zoning_result.get('zoning_description')}"
+                        else:
+                            st.session_state['property_zoning'] = zoning_result.get('zoning_code', '')
+                    
+                    # Update FLU
+                    if zoning_result.get('future_land_use'):
                         if zoning_result.get('future_land_use_description'):
-                            st.info(f"**Future Land Use:** {zoning_result.get('future_land_use', '')} - {zoning_result.get('future_land_use_description', '')}")
-                        
-                        # Show note if city-specific data unavailable
-                        if zoning_result.get('note'):
-                            st.info(f"ℹ️ {zoning_result.get('note', '')}")
-                        
-                        st.rerun()  # Force refresh to show updated field values
+                            st.session_state['property_land_use'] = f"{zoning_result.get('future_land_use')} - {zoning_result.get('future_land_use_description')}"
+                        else:
+                            st.session_state['property_land_use'] = zoning_result.get('future_land_use', '')
+                    
+                    # Success message based on county
+                    if current_county == 'Pasco':
+                        st.success(f"✅ Zoning and FLU data updated from Pasco County GIS!")
+                    elif current_county == 'Hillsborough':
+                        st.success(f"✅ Zoning and FLU data updated from Hillsborough County GIS!")
+                    elif 'St. Petersburg' in city or 'St Petersburg' in city:
+                        st.success(f"✅ Zoning data updated from St. Petersburg GIS layers!")
+                    elif 'Clearwater' in city:
+                        st.success(f"✅ Zoning data updated from Clearwater GIS layers!")
+                    elif 'Largo' in city:
+                        st.success(f"✅ Zoning/FLU data updated (Largo uses Future Land Use classification)!")
+                    elif 'Unincorporated' in city:
+                        st.success(f"✅ Zoning data updated from Pinellas County (unincorporated) layers!")
                     else:
-                        st.error(f"❌ {zoning_result.get('error', 'Unable to fetch zoning data')}")
+                        st.success(f"✅ Zoning data updated!")
+                    
+                    st.rerun()
+                else:
+                    st.error(f"❌ {zoning_result.get('error', 'Unable to fetch zoning data')}")
     
     st.markdown("---")
     
