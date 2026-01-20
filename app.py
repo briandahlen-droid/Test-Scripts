@@ -1,7 +1,6 @@
 """
 Development Services Proposal Generator
 Streamlit web application for generating professional proposal documents
-With Kimley-Horn header and footer
 Integrated with comprehensive property lookup for Pinellas, Hillsborough, and Pasco counties
 """
 import streamlit as st
@@ -18,8 +17,6 @@ import requests
 from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-
-st.set_page_config(page_title="Proposal Generator", page_icon="📋", layout="wide")
 
 # ============================================================================
 # PINELLAS CITY NAME MAPPING
@@ -1489,6 +1486,10 @@ def lookup_stpete_zoning(address):
 # ============================================================================
 
 
+# ============================================================================
+# DOCUMENT GENERATION FUNCTIONS
+# ============================================================================
+
 # DOCUMENT GENERATION FUNCTIONS
 # ============================================================================
 
@@ -2587,847 +2588,785 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 ])
 
 
-# TAB 1: Property & Client Information
+# ============================================================================
+# STREAMLIT UI WITH TABS
+# ============================================================================
+
+st.title("📋 Development Services Proposal Generator")
+st.caption("Kimley-Horn - Tampa Bay Counties (Pinellas, Hillsborough, Pasco)")
+
+tab1, tab2, tab3, tab4 = st.tabs([
+    "🏠 Property & Client Info",
+    "📋 Scope of Services",
+    "✓ Assumptions & Permits",
+    "💰 Invoice & Generate"
+])
+
+# TAB 1: Property Lookup & Client Info
 with tab1:
-    # Property lookup section
-    def property_lookup_section():
-        """Isolated property lookup section for better performance."""
-        st.subheader("Property/Parcel Information")
-        col_prop1, col_prop2, col_prop3 = st.columns(3)
-        
-        with col_prop1:
-            county = st.selectbox(
-                "County *",
-                options=["", "Pinellas", "Hillsborough", "Pasco"],
-                help="Select the county where the project is located",
-                key="county"
-            )
-        
-        with col_prop2:
-            city = st.text_input(
-                "City *",
-                placeholder="e.g., St. Petersburg",
-                key="city"
-            )
-        
-        with col_prop3:
-            # Determine correct ID type based on county
-            selected_county = st.session_state.get('county', '')
-            if selected_county in ['Hillsborough', 'Manatee']:
-                id_label = "Folio ID"
-                id_help = "Folio ID for Hillsborough/Manatee County (remove dashes, e.g., 1926050030)"
-                id_placeholder = "e.g., 1926050030"
-            else:
-                id_label = "Parcel ID"
-                id_help = "Property parcel identification number"
-                id_placeholder = "e.g., 12-34-56-78900-000-0000"
-            
-            parcel_id = st.text_input(
-                id_label,
-                placeholder=id_placeholder,
-                help=id_help,
-                key="parcel_id"
-            )
-        
-        # Lookup button
-        if st.button("🔍 Lookup Property Info", disabled=not (st.session_state.get('county') and st.session_state.get('parcel_id'))):
-            county = st.session_state.get('county', '')
-            parcel_id = st.session_state.get('parcel_id', '')
-            
-            with st.spinner(f"Looking up property info in {county} County..."):
-                result = lookup_property_info(county, parcel_id)
-                
-                if result['success']:
-                    st.success(f"✅ Property found!")
-                    
-                    # Store all lookup data in session state
-                    st.session_state['lookup_address'] = result.get('address', '')
-                    st.session_state['lookup_city'] = result.get('city', '')
-                    st.session_state['lookup_zip'] = result.get('zip', '')
-                    st.session_state['lookup_owner'] = result.get('owner', '')
-                    st.session_state['lookup_land_use'] = result.get('land_use', '')
-                    st.session_state['lookup_zoning'] = result.get('zoning', '')
-                    st.session_state['lookup_site_area_acres'] = result.get('site_area_acres', '')
-                    st.session_state['lookup_site_area_sqft'] = result.get('site_area_sqft', '')
-                    st.session_state['lookup_legal_description'] = result.get('legal_description', '')
-                    st.session_state['lookup_subdivision'] = result.get('subdivision', '')
-                    
-                    # FOR PINELLAS: Store geometry for zoning lookup
-                    if county == 'Pinellas':
-                        st.session_state['lookup_geometry'] = result.get('geometry', {})
-                    
-                    # FOR PINELLAS: Override city based on user-entered City field if API returns wrong data
-                    if county == 'Pinellas' and st.session_state.get('city'):
-                        # Use the city the user typed instead of unreliable API city
-                        st.session_state['lookup_city'] = st.session_state.get('city', '')
-                    
-                    # Auto-fill project address fields
-                    st.session_state['project_address'] = result.get('address', '')
-                    st.session_state['project_city_state_zip'] = f"{st.session_state['lookup_city']}, FL {result.get('zip', '')}"
-                    
-                    # Auto-fill editable property detail fields from property lookup
-                    st.session_state['property_owner'] = result.get('owner', '')
-                    st.session_state['property_use'] = result.get('land_use', '')  # Property Appraiser classification
-                    st.session_state['property_zoning'] = result.get('zoning', '')
-                    st.session_state['property_site_acres'] = result.get('site_area_acres', '')
-                    
-                    # Build property information display
-                    info_lines = [
-                        "**Found Property Information:**",
-                        f"- **Address:** {result.get('address', 'N/A')}",
-                        f"- **City:** {result.get('city', 'N/A')}, FL {result.get('zip', 'N/A')}",
-                        f"- **Owner:** {result.get('owner', 'N/A')}",
-                    ]
-                    
-                    # Add site area if available
-                    if st.session_state.get('lookup_site_area_acres'):
-                        info_lines.append(f"- **Site Area:** {st.session_state['lookup_site_area_acres']} acres")
-                    elif result.get('site_area_sqft'):
-                        info_lines.append(f"- **Site Area:** {result.get('site_area_sqft', 0):,.0f} sq ft")
-                    
-                    info_lines.extend([
-                        f"- **Land Use:** {st.session_state.get('lookup_land_use', 'N/A')}",
-                        f"- **Zoning:** {st.session_state.get('lookup_zoning', 'N/A')}",
-                    ])
-                    
-                    # Add legal description if available
-                    if result.get('legal_description'):
-                        info_lines.append(f"- **Legal Description:** {result.get('legal_description', 'N/A')}")
-                    
-                    # Add subdivision if available
-                    if result.get('subdivision'):
-                        info_lines.append(f"- **Subdivision:** {result.get('subdivision', 'N/A')}")
-                    
-                    st.info("\n".join(info_lines))
-                else:
-                    st.error(f"❌ {result['error']}")
-    
-    # Call the property lookup section
-    property_lookup_section()
-    
     st.markdown("---")
     
-    # Editable Property Details Section (always visible)
-    st.subheader("Property Details (Editable)")
-    st.caption("💡 These fields auto-fill from property lookup but can be edited manually.")
-    
-    # Show property address/city from lookup for reference
-    if st.session_state.get('lookup_address'):
-        st.text_input(
-            "Property Address (from lookup)",
-            value=f"{st.session_state.get('lookup_address', '')} - {st.session_state.get('lookup_city', '')}, FL {st.session_state.get('lookup_zip', '')}",
-            disabled=True,
-            help="Address found from property lookup. Use this to verify city for zoning lookup."
-        )
-    
-    col_prop_detail1, col_prop_detail2 = st.columns(2)
-    
-    with col_prop_detail1:
-        property_owner = st.text_input(
-            "Owner Name",
-            value=st.session_state.get('property_owner', ''),
-            placeholder="e.g., ABC Development LLC",
-            help="Auto-fills from property lookup"
-        )
-        # Store value back to session state when user edits
-        st.session_state['property_owner'] = property_owner
-        
-        property_use = st.text_input(
-            "Property Use",
-            value=st.session_state.get('property_use', ''),
-            placeholder="e.g., General Office Bldg",
-            help="Current property classification from Property Appraiser"
-        )
-        st.session_state['property_use'] = property_use
-        
-        property_zoning = st.text_input(
-            "Zoning",
-            value=st.session_state.get('property_zoning', ''),
-            placeholder="e.g., C-2, PUD, RSF-4",
-            help="Auto-fills from property lookup"
-        )
-        st.session_state['property_zoning'] = property_zoning
-    
-    with col_prop_detail2:
-        property_land_use = st.text_input(
-            "Future Land Use",
-            value=st.session_state.get('property_land_use', ''),
-            placeholder="e.g., Commercial, Residential",
-            help="Auto-fills from property lookup"
-        )
-        st.session_state['property_land_use'] = property_land_use
-        
-        property_site_acres = st.text_input(
-            "Site Area (acres)",
-            value=st.session_state.get('property_site_acres', ''),
-            placeholder="e.g., 1.36",
-            help="Auto-fills from property lookup"
-        )
-        st.session_state['property_site_acres'] = property_site_acres
-    
-    # Zoning & FLU Lookup Button (for all Tampa Bay counties)
-    current_county = st.session_state.get('county')
-    
-    if current_county in ['Pinellas', 'Hillsborough', 'Pasco'] and st.session_state.get('parcel_id'):
-        st.markdown("---")
-        
-        if current_county == 'Pinellas':
-            st.caption("🔍 **For Pinellas County:** Lookup detailed zoning and Future Land Use from city-specific GIS layers (St. Petersburg, Clearwater, Largo, and unincorporated areas)")
-        elif current_county == 'Hillsborough':
-            st.caption("🔍 **For Hillsborough County:** Lookup detailed zoning and Future Land Use from county GIS layers")
-        else:  # Pasco
-            st.caption("🔍 **For Pasco County:** Lookup detailed zoning and Future Land Use from county GIS layers")
-        
-        if st.button("🗺️ Lookup Zoning & Future Land Use", type="secondary"):
-            city = st.session_state.get('city', '')
-            address = st.session_state.get('lookup_address', '')
-            
-            if not address:
-                st.error("❌ Please run Property Lookup first to get the address")
-            else:
-                if current_county == 'Pinellas':
-                    with st.spinner(f"Fetching zoning data for {address} in {city}..."):
-                        zoning_result = lookup_pinellas_zoning(city, address)
-                
-                elif current_county == 'Hillsborough':
-                    geom = st.session_state.get('hillsborough_geometry')
-                    with st.spinner(f"Fetching zoning/FLU data for {address}..."):
-                        zoning_result = lookup_hillsborough_zoning_flu(address, geometry=geom)
-                
-                else:  # Pasco
-                    geom = st.session_state.get('pasco_geometry')
-                    with st.spinner(f"Fetching zoning/FLU data for {address}..."):
-                        zoning_result = lookup_pasco_zoning_flu(address, geometry=geom)
-                
-                if zoning_result.get('success'):
-                    # Update zoning
-                    if zoning_result.get('zoning_code'):
-                        if zoning_result.get('zoning_description'):
-                            st.session_state['property_zoning'] = f"{zoning_result.get('zoning_code')} - {zoning_result.get('zoning_description')}"
-                        else:
-                            st.session_state['property_zoning'] = zoning_result.get('zoning_code', '')
-                    
-                    # Update FLU
-                    if zoning_result.get('future_land_use'):
-                        if zoning_result.get('future_land_use_description'):
-                            st.session_state['property_land_use'] = f"{zoning_result.get('future_land_use')} - {zoning_result.get('future_land_use_description')}"
-                        else:
-                            st.session_state['property_land_use'] = zoning_result.get('future_land_use', '')
-                    
-                    # Success message based on county
-                    if current_county == 'Pasco':
-                        st.success(f"✅ Zoning and FLU data updated from Pasco County GIS!")
-                    elif current_county == 'Hillsborough':
-                        st.success(f"✅ Zoning and FLU data updated from Hillsborough County GIS!")
-                    elif 'St. Petersburg' in city or 'St Petersburg' in city:
-                        st.success(f"✅ Zoning data updated from St. Petersburg GIS layers!")
-                    elif 'Clearwater' in city:
-                        st.success(f"✅ Zoning data updated from Clearwater GIS layers!")
-                    elif 'Largo' in city:
-                        st.success(f"✅ Zoning/FLU data updated (Largo uses Future Land Use classification)!")
-                    elif 'Unincorporated' in city:
-                        st.success(f"✅ Zoning data updated from Pinellas County (unincorporated) layers!")
-                    else:
-                        st.success(f"✅ Zoning data updated!")
-                    
-                    st.rerun()
-                else:
-                    st.error(f"❌ {zoning_result.get('error', 'Unable to fetch zoning data')}")
-    
-    st.markdown("---")
-    
-    st.subheader("Client Information")
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        client_name = st.text_input("Client Name *", placeholder="e.g., ABC Development Corporation", key="client_name")
-        legal_entity_name = st.text_input(
-            "Legal Entity Name (per SunBiz) *",
-            placeholder="e.g., ABC Development Corporation, Inc.",
-            help="Entity name exactly as it appears in Florida SunBiz database",
-            key="legal_entity_name"
-        )
-        address_line1 = st.text_input("Address Line 1 *", placeholder="e.g., 123 Main Street", key="address_line1")
-        address_line2 = st.text_input("Address Line 2 *", placeholder="e.g., Tampa, FL 33602", key="address_line2")
-    
-    with col2:
-        contact_person = st.text_input("Contact Person *", placeholder="e.g., Ms. Michelle Bach", key="contact_person")
-        phone = st.text_input("Phone Number", placeholder="e.g., (813) 555-1234", key="phone")
-        email = st.text_input("Email Address", placeholder="e.g., info@example.com", key="email")
-    
-    st.markdown("---")
-    
-    st.subheader("Project Details")
-    col3, col4 = st.columns(2)
-    
-    with col3:
-        proposal_date = st.date_input("Proposal Date *", value=date.today(), key="proposal_date")
-        project_name = st.text_input("Project Name *", placeholder="e.g., Downtown Office Complex", key="project_name")
-    
-    with col4:
-        # Auto-fill happens via callback after lookup button click
-        project_address = st.text_input(
-            "Project Address",
-            placeholder="e.g., 7400 22nd Ave N",
-            key="project_address"
-        )
-        project_city_state_zip = st.text_input(
-            "City, State, Zip",
-            placeholder="e.g., St. Petersburg, FL 33710",
-            key="project_city_state_zip"
-        )
-    
-    project_description = st.text_area(
-        "Project Understanding *",
-        placeholder="Start with: Kimley-Horn understands that the Client plans to develop [project name] on the property located at [address] (Parcel ID: [id]). The [X]-acre parcel has a Future Land Use designation of [FLU] and is zoned [zoning]. Then describe the project scope and requirements...",
-        height=200,
-        key="project_description",
-        help="Write the complete Project Understanding paragraph. Include: project name, location, parcel ID, acreage, Future Land Use, zoning, and project scope."
+    # County Selection
+    county = st.selectbox(
+        "Select County",
+        ["Pinellas", "Hillsborough", "Pasco"],
+        help="Choose the county where your property is located"
     )
     
-    # Show helper info with property data if available (from editable fields)
-    if st.session_state.get('property_site_acres') or st.session_state.get('property_land_use') or st.session_state.get('property_zoning'):
-        st.info(f"""
-        **💡 Property data to include in your Project Understanding:**
-        - Parcel ID: {st.session_state.get('parcel_id', 'N/A')}
-        - Owner: {st.session_state.get('property_owner', 'N/A')}
-        - Site Area: {st.session_state.get('property_site_acres', 'N/A')} acres
-        - Future Land Use: {st.session_state.get('property_land_use', 'N/A')}
-        - Zoning: {st.session_state.get('property_zoning', 'N/A')}
-        """)
-
-
-# TAB 2: Project Details (Assumptions)
-with tab2:
-    st.subheader("Project Understanding Assumptions")
-    st.markdown("Check the assumptions that apply to this project. These will appear in the Project Understanding section.")
+    # Input Section
+    st.subheader("Input")
     
-    col_assume1, col_assume2 = st.columns(2)
-    
-    with col_assume1:
-        assume_survey = st.checkbox(
-            "Boundary, topographic, and tree survey provided by Client",
-            value=True
+    if county == "Pinellas":
+        parcel_id_input = st.text_input(
+            "Parcel ID",
+            placeholder="e.g., 19-31-17-73166-001-0010",
+            help="Pinellas County parcel ID with dashes",
+            key="parcel_input"
         )
-        assume_environmental = st.checkbox(
-            "Environmental/Biological assessment provided"
+    elif county == "Hillsborough":
+        parcel_id_input = st.text_input(
+            "Folio Number",
+            placeholder="e.g., 109054.1000",
+            help="Hillsborough County folio number",
+            key="parcel_input"
         )
-        assume_geotech = st.checkbox(
-            "Geotechnical investigation report provided"
-        )
-        assume_zoning = st.checkbox(
-            "Use is consistent with future land use and zoning",
-            value=True
-        )
-        assume_utilities = st.checkbox(
-            "Utilities available at project boundary with adequate capacity",
-            value=True
+    else:  # Pasco
+        parcel_id_input = st.text_input(
+            "Parcel ID",
+            placeholder="e.g., 29-24-17-0000-0D411-0000",
+            help="Pasco County parcel ID (with or without dashes)",
+            key="parcel_input"
         )
     
-    with col_assume2:
-        assume_offsite = st.checkbox(
-            "Offsite roadway improvements not included",
-            value=True
-        )
-        assume_traffic = st.checkbox(
-            "Traffic study provided by others or not required",
-            value=True
-        )
-        assume_one_phase = st.checkbox(
-            "Project constructed in one (1) phase",
-            value=True
-        )
-        
-        col_plan1, col_plan2 = st.columns([1, 2])
-        with col_plan1:
-            has_conceptual_plan = st.checkbox("Based on conceptual plan")
-        with col_plan2:
-            conceptual_plan_date = st.text_input(
-                "Plan Date",
-                placeholder="e.g., 10/15/2024",
-                disabled=not has_conceptual_plan,
-                label_visibility="collapsed"
-            )
-
-
-# TAB 3: Scope of Services
-with tab3:
-    st.subheader("Scope of Services")
-    st.markdown("Select the tasks to include, enter the fee, and choose the fee type for each task.")
-    
-    selected_tasks = {}
-    
-    for task_num in sorted(DEFAULT_FEES.keys()):
-        task = DEFAULT_FEES[task_num]
-        
-        col_check, col_name, col_fee, col_type = st.columns([0.5, 3, 1.5, 1.5])
-        
-        with col_check:
-            task_selected = st.checkbox(
-                f"{task_num}",
-                value=(task_num == '310'),  # Auto-check Task 310
-                key=f"check_{task_num}",
-                label_visibility="collapsed"
-            )
-        
-        with col_name:
-            if task_num == '310':
-                st.markdown(f"**Task {task_num}: {task['name']}** *(uncheck if not needed)*")
-            else:
-                st.markdown(f"**Task {task_num}: {task['name']}**")
-        
-        with col_fee:
-            fee_amount = st.number_input(
-                "Fee ($)",
-                min_value=0,
-                value=None,
-                placeholder=f"{task['amount']:,}",
-                key=f"fee_{task_num}",
-                disabled=not task_selected,
-                label_visibility="collapsed"
-            )
-        
-        with col_type:
-            fee_type_selection = st.selectbox(
-                "Type",
-                options=["Hourly, Not-to-Exceed", "Hourly", "Lump Sum"],
-                index=0,  # Default to Hourly, Not-to-Exceed
-                key=f"type_{task_num}",
-                disabled=not task_selected,
-                label_visibility="collapsed"
-            )
-        
-        if task_selected:
-            final_fee = fee_amount if fee_amount is not None else task['amount']
-            selected_tasks[task_num] = {
-                'name': task['name'],
-                'fee': final_fee,
-                'type': fee_type_selection  # Use per-task fee type
-            }
-            
-            # Task 310 - Construction Phase Services selection
-            if task_num == '310':
-                st.markdown("**📋 Construction Phase Services:**")
-                st.caption("Select services, enter hours/count, rate, and cost")
-                
-                # Header row
-                col_h1, col_h2, col_h3, col_h4, col_h5 = st.columns([0.5, 3, 1.5, 1.5, 1.5])
-                with col_h1:
-                    st.write("")
-                with col_h2:
-                    st.markdown("**Service**")
-                with col_h3:
-                    st.markdown("**Hrs/Count**")
-                with col_h4:
-                    st.markdown("**$/hr**")
-                with col_h5:
-                    st.markdown("**Cost ($)**")
-                
-                # Services configuration
-                services_list = [
-                    ('shop_drawings', 'Shop Drawing Review', 30, 165, 4950),
-                    ('rfi', 'RFI Response', 50, 165, 8250),
-                    ('oac', 'OAC Meetings', 24, 0, 3000),
-                    ('site_visits', 'Site Visits (2 hrs each)', 4, 0, 1000),
-                    ('asbuilt', 'As-Built Reviews', 2, 0, 500),
-                    ('inspection_tv', 'Inspection & TV Reports', 0, 165, 0),
-                    ('record_drawings', 'Record Drawings (Water/Sewer)', 40, 165, 6600),
-                    ('fdep', 'FDEP Clearance Submittals', 0, 0, 0),
-                    ('compliance', 'Letter of General Compliance', 0, 0, 0),
-                    ('wmd', 'WMD Certification', 0, 0, 0)
-                ]
-                
-                service_data = {}
-                
-                for svc_key, svc_name, default_hrs, default_rate, default_cost in services_list:
-                    col_chk, col_nm, col_hrs, col_rate, col_cost = st.columns([0.5, 3, 1.5, 1.5, 1.5])
-                    
-                    with col_chk:
-                        is_selected = st.checkbox(
-                            "✓",
-                            value=(svc_key in ['shop_drawings', 'rfi', 'oac', 'site_visits', 'asbuilt', 'fdep', 'compliance', 'wmd']),
-                            key=f"svc310_{svc_key}",
-                            label_visibility="collapsed"
-                        )
-                    
-                    with col_nm:
-                        st.markdown(f"{svc_name}")
-                    
-                    with col_hrs:
-                        if default_hrs > 0 or svc_key in ['inspection_tv', 'record_drawings']:
-                            hrs_value = st.number_input(
-                                "Hrs",
-                                min_value=0,
-                                value=default_hrs,
-                                key=f"hrs310_{svc_key}",
-                                disabled=not is_selected,
-                                label_visibility="collapsed"
-                            )
-                        else:
-                            hrs_value = 0
-                            st.write("—")
-                    
-                    with col_rate:
-                        if default_rate > 0 or svc_key in ['inspection_tv', 'record_drawings']:
-                            rate_value = st.number_input(
-                                "Rate",
-                                min_value=0,
-                                value=default_rate,
-                                key=f"rate310_{svc_key}",
-                                disabled=not is_selected,
-                                label_visibility="collapsed"
-                            )
-                        else:
-                            rate_value = 0
-                            st.write("—")
-                    
-                    with col_cost:
-                        if is_selected:
-                            cost_value = st.number_input(
-                                "Cost",
-                                min_value=0,
-                                value=default_cost,
-                                key=f"cost310_{svc_key}",
-                                disabled=not is_selected,
-                                label_visibility="collapsed"
-                            )
-                        else:
-                            cost_value = 0
-                            st.write("—")
-                    
-                    service_data[svc_key] = {
-                        'included': is_selected,
-                        'name': svc_name,
-                        'hours': hrs_value if is_selected else 0,
-                        'rate': rate_value if is_selected else 0,
-                        'cost': cost_value if is_selected else 0
-                    }
-                
-                st.markdown("---")
-                total_hrs = st.number_input(
-                    "**Total Task 310 Hours**",
-                    min_value=0,
-                    value=180,
-                    key="total_construction_hours"
-                )
-                
-                selected_tasks[task_num]['services'] = service_data
-                selected_tasks[task_num]['total_hours'] = total_hrs
-                
-                # Create hours dictionary for placeholder replacement in document generation
-                selected_tasks[task_num]['hours'] = {
-                    'shop_drawing': service_data['shop_drawings']['hours'],
-                    'rfi': service_data['rfi']['hours'],
-                    'oac_meetings': service_data['oac']['hours'],
-                    'site_visits': service_data['site_visits']['hours'],
-                    'record_drawing': service_data['record_drawings']['hours'],
-                    'total': total_hrs
-                }
-
-
-
-
-# TAB 4: Permitting & Summary
-with tab4:
-    st.subheader("Permitting Requirements")
-    st.markdown("Select the permits/approvals required for this project (applies to Task 150 - Civil Permitting):")
-    
-    permit_config = PERMIT_MAPPING.get(st.session_state.get('county', ''), {})
-    default_permits = permit_config.get('default_permits', [])
-    ahj_name = permit_config.get('ahj_name', 'Authority Having Jurisdiction')
-    wmd_name = permit_config.get('wmd_short', 'Water Management District')
-    
-    col_permit1, col_permit2, col_permit3 = st.columns(3)
-    
-    with col_permit1:
-        permit_ahj = st.checkbox(f"{ahj_name}", value=("ahj" in default_permits), help="Primary permitting authority")
-        permit_sewer = st.checkbox("Sewer Provider", value=("sewer" in default_permits))
-        permit_water = st.checkbox("Water Provider", value=("water" in default_permits))
-    
-    with col_permit2:
-        permit_wmd_erp = st.checkbox(f"{wmd_name} ERP", value=("wmd_erp" in default_permits), help="Environmental Resources Permit")
-        permit_fdep = st.checkbox("FDEP Potable Water/Wastewater", value=("fdep" in default_permits))
-        permit_fdot_drainage = st.checkbox("FDOT Drainage Connection", value=("fdot_drainage" in default_permits))
-    
-    with col_permit3:
-        permit_fdot_driveway = st.checkbox("FDOT Driveway Connection", value=("fdot_driveway" in default_permits))
-        permit_fdot_utility = st.checkbox("FDOT Utility Connection", value=("fdot_utility" in default_permits))
-        permit_fema = st.checkbox("FEMA", value=("fema" in default_permits))
-    
-    st.markdown("---")
-    
-    # Additional Services Configuration
-    st.subheader("Additional Services")
-    st.markdown("**Check the services you ARE providing** in this proposal and enter the fee. Unchecked services will be listed as 'Additional Services' (not included).")
-    
-    # Default list of additional services with suggested default fees
-    additional_services_list = [
-        ("offsite_roadway", "Off-site roadway, traffic signal design or utility improvements", False, 25000),
-        ("offsite_utility", "Off-site utility capacity analysis and extensions", False, 15000),
-        ("utility_relocation", "Utility relocation design and plans", False, 12000),
-        ("cost_opinions", "Preparation of opinions of probable construction costs", False, 5000),
-        ("dewatering", "Dewatering permitting (to be provided by Contractor)", False, 3000),
-        ("site_lighting", "Site lighting, photometric, and site electrical plan", False, 8000),
-        ("dry_utility", "Dry utility coordination and design", False, 10000),
-        ("landscape", "Landscape, irrigation, hardscape design and tree mitigation", False, 20000),
-        ("fire_line", "Fire line design", False, 6000),
-        ("row_permitting", "Right-of-way permitting", False, 8000),
-        ("concurrency", "Concurrency application assistance", False, 5000),
-        ("3d_modeling", "3D modeling and graphic/presentations", False, 8000),
-        ("leed", "LEED certification and review", False, 20000),
-        ("schematic_dd", "Schematic and design development plans", False, 15000),
-        ("extra_meetings", "Meetings other than those described in the tasks above", False, 5000),
-        ("surveying", "Boundary, topographic and tree surveying, platting and subsurface utility exploration", False, 25000),
-        ("platting", "Platting or easement assistance", False, 8000),
-        ("traffic_studies", "Traffic studies, analysis, property share agreement", False, 30000),
-        ("mot_plans", "Maintenance of traffic plans", False, 12000),
-        ("structural", "Structural engineering (including retaining walls)", False, 35000),
-        ("signage", "Signage design", False, 4000),
-        ("extra_design", "Design elements beyond those outlined in the above project understanding", False, 10000),
-        ("peer_review", "Responding to comments from third-party peer review", False, 8000)
-    ]
-    
-    st.caption("💡 Tip: Check services you ARE including and enter fees. Unchecked items appear in 'Additional Services (Not Included)' section.")
-    
-    # Create 2-column layout: Service name (left) + Fee (right)
-    included_additional_services = []
-    excluded_additional_services = []
-    included_additional_services_with_fees = {}  # Store as dict with fees
-    
-    for key, service_name, default_checked, default_fee in additional_services_list:
-        col_service, col_fee = st.columns([3, 1])
-        
-        with col_service:
-            is_checked = st.checkbox(
-                service_name,
-                value=default_checked,
-                key=f"addl_svc_{key}"
-            )
-        
-        with col_fee:
-            fee_amount = st.number_input(
-                "Fee ($)",
-                min_value=0,
-                value=None,
-                placeholder=f"{default_fee:,}",
-                key=f"addl_fee_{key}",
-                disabled=not is_checked,
-                label_visibility="collapsed"
-            )
-        
-        if is_checked:
-            final_fee = fee_amount if fee_amount is not None else default_fee
-            included_additional_services.append(service_name)
-            included_additional_services_with_fees[service_name] = final_fee
+    # Lookup Buttons
+    if st.button("🔍 Lookup Property Info", type="primary"):
+        if not parcel_id_input:
+            st.error(f"Please enter a {'parcel ID' if county == 'Pinellas' else 'folio number'}")
         else:
-            excluded_additional_services.append(service_name)
+            try:
+                if county == "Pinellas":
+                    # Validate
+                    is_valid, error_msg = validate_parcel_id(parcel_id_input)
+                    if not is_valid:
+                        st.error(f"❌ {error_msg}")
+                    else:
+                        with st.spinner("Fetching property data from PCPAO API..."):
+                            result = scrape_pinellas_property(parcel_id_input)
+                            
+                            if result['success']:
+                                st.session_state['api_address'] = result.get('address', '')
+                                st.session_state['api_city'] = result.get('city', '')
+                                st.session_state['api_zip'] = result.get('zip', '')
+                                st.session_state['api_owner'] = result.get('owner', '')
+                                st.session_state['api_land_use'] = result.get('land_use', '')
+                                st.session_state['api_zoning'] = result.get('zoning', '')
+                                st.session_state['land_area_sqft'] = result.get('site_area_sqft', '')
+                                st.session_state['land_area_acres'] = result.get('site_area_acres', '')
+                                st.session_state['api_flu'] = ''
+                                
+                                st.success("✅ Property data retrieved successfully!")
+                                st.rerun()
+                            else:
+                                st.error(f"❌ {result['error']}")
+                
+                elif county == "Hillsborough":
+                    with st.spinner("Fetching property data from Hillsborough County..."):
+                        result = lookup_hillsborough_parcel(parcel_id_input)
+                        
+                        if result['success']:
+                            st.session_state['api_address'] = result.get('address', '')
+                            st.session_state['api_city'] = result.get('city', '')
+                            st.session_state['api_zip'] = result.get('zip', '')
+                            st.session_state['api_owner'] = result.get('owner', '')
+                            st.session_state['api_land_use'] = result.get('land_use', '')
+                            st.session_state['api_zoning'] = result.get('zoning', '')
+                            st.session_state['land_area_sqft'] = result.get('site_area_sqft', '')
+                            st.session_state['land_area_acres'] = result.get('site_area_acres', '')
+                            st.session_state['api_flu'] = ''
+                            st.session_state['hillsborough_geometry'] = result.get('geometry')
+                            
+                            st.success("✅ Property data retrieved successfully!")
+                            st.rerun()
+                        else:
+                            st.error(f"❌ {result['error']}")
+                
+                else:  # Pasco
+                    
+                    with st.spinner("Fetching property data from Pasco County (SWFWMD)..."):
+                        result = lookup_pasco_parcel(parcel_id_input)
+                        
+                        
+                        if result['success']:
+                            st.session_state['api_address'] = result.get('address', '')
+                            st.session_state['api_city'] = result.get('city', '')
+                            st.session_state['api_zip'] = result.get('zip', '')
+                            st.session_state['api_owner'] = result.get('owner', '')
+                            st.session_state['api_land_use'] = result.get('land_use', '')
+                            st.session_state['api_zoning'] = result.get('zoning', '')
+                            st.session_state['land_area_sqft'] = result.get('site_area_sqft', '')
+                            st.session_state['land_area_acres'] = result.get('site_area_acres', '')
+                            st.session_state['api_flu'] = result.get('flu', '')  # DOR4CODE for Pasco
+                            st.session_state['pasco_geometry'] = result.get('geometry')
+                            
+                            st.success("✅ Property data retrieved successfully!")
+                            st.rerun()
+                        else:
+                            st.error(f"❌ {result.get('error', 'Unknown error')}")
+            except Exception as e:
+                st.error(f"❌ Unexpected error: {str(e)}")
+                import traceback
+                st.code(traceback.format_exc())
+    
+    # Second button for zoning/FLU lookup (always show after parcel ID entered)
+    st.markdown("---")
+    
+    if county == "Pinellas":
+        st.caption("🔍 **For Pinellas County:** Lookup detailed zoning and Future Land Use from GIS layers (St. Petersburg, Clearwater, Largo, and unincorporated areas)")
+    elif county == "Hillsborough":
+        st.caption("🔍 **For Hillsborough County:** Lookup detailed zoning and Future Land Use from county GIS layers")
+    else:  # Pasco
+        st.caption("🔍 **For Pasco County:** Lookup detailed zoning and Future Land Use from county GIS layers")
+    
+    if st.button("🗺️ Lookup Zoning & Future Land Use", type="secondary"):
+        city = st.session_state.get('api_city', '')
+        address = st.session_state.get('api_address', '')
+        
+        if not address:
+            st.error("❌ Please run Property Lookup first to get the address")
+        else:
+            if county == "Pinellas":
+                with st.spinner(f"Fetching zoning data for {address} in {city}..."):
+                    zoning_result = lookup_pinellas_zoning(city, address)
+            
+            elif county == "Hillsborough":
+                geom = st.session_state.get('hillsborough_geometry')
+                with st.spinner(f"Fetching zoning/FLU data for {address}..."):
+                    zoning_result = lookup_hillsborough_zoning_flu(address, geometry=geom)
+            
+            else:  # Pasco
+                geom = st.session_state.get('pasco_geometry')
+                with st.spinner(f"Fetching zoning/FLU data for {address}..."):
+                    zoning_result = lookup_pasco_zoning_flu(address, geometry=geom)
+            
+            if zoning_result.get('success'):
+                # Update zoning with detailed info
+                if zoning_result.get('zoning_code'):
+                    if zoning_result.get('zoning_description'):
+                        st.session_state['api_zoning'] = f"{zoning_result.get('zoning_code')} - {zoning_result.get('zoning_description')}"
+                    else:
+                        st.session_state['api_zoning'] = zoning_result.get('zoning_code', '')
+                
+                # Update FLU
+                if zoning_result.get('future_land_use'):
+                    if zoning_result.get('future_land_use_description'):
+                        st.session_state['api_flu'] = f"{zoning_result.get('future_land_use')} - {zoning_result.get('future_land_use_description')}"
+                    else:
+                        st.session_state['api_flu'] = zoning_result.get('future_land_use', '')
+                
+                # Show which jurisdiction was queried
+                if county == "Pasco":
+                    st.success(f"✅ Zoning and FLU data updated from Pasco County GIS!")
+                elif county == "Hillsborough":
+                    st.success(f"✅ Zoning and FLU data updated from Hillsborough County GIS!")
+                elif 'St. Petersburg' in city or 'St Petersburg' in city:
+                    st.success(f"✅ Zoning data updated from St. Petersburg GIS layers!")
+                elif 'Clearwater' in city:
+                    st.success(f"✅ Zoning data updated from Clearwater GIS layers!")
+                elif 'Largo' in city:
+                    st.success(f"✅ Zoning/FLU data updated (Largo uses Future Land Use classification)!")
+                elif 'Unincorporated' in city:
+                    st.success(f"✅ Zoning data updated from Pinellas County (unincorporated) layers!")
+                else:
+                    st.success(f"✅ Zoning data updated!")
+                
+                st.rerun()
+            else:
+                st.error(f"❌ {zoning_result.get('error', 'Unable to fetch zoning data')}")
     
     st.markdown("---")
+    
+    # Results Section
+    st.subheader("Results - All Property Data")
+    st.caption("These fields auto-fill after successful lookup")
+    
+    col_left, col_right = st.columns(2)
+    
+    with col_left:
+        st.text_input(
+            "City (auto-filled)",
+            key='api_city',
+            placeholder="Will auto-fill",
+            help="City name from Property Appraiser"
+        )
+        
+        st.text_input(
+            "Address (auto-filled)",
+            key='api_address',
+            placeholder="Will auto-fill",
+            help="Property address from Property Appraiser"
+        )
+        
+        st.text_input(
+            "ZIP Code (auto-filled)",
+            key='api_zip',
+            placeholder="Will auto-fill",
+            help="ZIP code from Property Appraiser"
+        )
+        
+        st.text_input(
+            "Property Use (auto-filled)",
+            key='api_land_use',
+            placeholder="Will auto-fill",
+            help="Property Appraiser land use classification"
+        )
+    
+    with col_right:
+        st.text_input(
+            "Owner (auto-filled)",
+            key='api_owner',
+            placeholder="Will auto-fill",
+            help="Property owner from Property Appraiser"
+        )
+        
+        st.text_input(
+            "Zoning (auto-filled)",
+            key='api_zoning',
+            placeholder="Will auto-fill from GIS layers",
+            help="Zoning district from county GIS layers"
+        )
+        
+        st.text_input(
+            "Future Land Use (auto-filled)",
+            key='api_flu',
+            placeholder="Will auto-fill from GIS layers",
+            help="Future Land Use from county GIS layers"
+        )
+        
+        st.text_input(
+            "Land Area (acres)",
+            key='land_area_acres',
+            placeholder="Will auto-fill",
+            help="Acreage from Property Appraiser"
+        )
+    
+    st.text_input(
+        "Land Area (square feet)",
+        key='land_area_sqft',
+        placeholder="Will auto-fill (Pinellas only)",
+        help="Square footage from Property Appraiser (Pinellas only)"
+    )
     
     # Summary
-    st.subheader("Selected Tasks Summary")
-    if selected_tasks or included_additional_services_with_fees:
-        total_fee = 0
+    st.markdown("---")
+    st.subheader("Test Summary")
+    
+    if st.session_state.get('api_city'):
+        st.success("✅ Step 1: PCPAO API Lookup completed")
         
-        # Show regular tasks
-        for task_num in sorted(selected_tasks.keys()):
-            task = selected_tasks[task_num]
-            st.write(f"✓ Task {task_num}: {task['name']} — **${task['fee']:,}**")
-            total_fee += task['fee']
+        # Show what was retrieved
+        retrieved = []
+        if st.session_state.get('api_city'): retrieved.append("City")
+        if st.session_state.get('api_address'): retrieved.append("Address")
+        if st.session_state.get('api_owner'): retrieved.append("Owner")
+        if st.session_state.get('api_land_use'): retrieved.append("Property Use")
+        if st.session_state.get('land_area_acres'): retrieved.append("Land Area")
         
-        # Show included additional services
-        if included_additional_services_with_fees:
-            st.markdown("**Additional Services Included:**")
-            for service_name, service_fee in included_additional_services_with_fees.items():
-                st.write(f"✓ {service_name} — **${service_fee:,}**")
-                total_fee += service_fee
+        st.info(f"**Retrieved from PCPAO:** {', '.join(retrieved)}")
+        
+        # Check if zoning/FLU have been looked up
+        if st.session_state.get('api_flu'):
+            st.success("✅ Step 2: GIS Layer Lookup completed")
+            zoning_retrieved = []
+            if st.session_state.get('api_zoning') and 'Contact City' not in st.session_state.get('api_zoning', ''): 
+                zoning_retrieved.append("Zoning")
+            if st.session_state.get('api_flu'): 
+                zoning_retrieved.append("Future Land Use")
+            if zoning_retrieved:
+                st.info(f"**Retrieved from GIS Layers:** {', '.join(zoning_retrieved)}")
+        else:
+            st.info("ℹ️ Click '🗺️ Lookup Zoning & Future Land Use' button to get detailed zoning data (St. Petersburg only)")
+    else:
+        st.info("Click '🔍 Lookup Property Info' to start")
+# TAB 2: Scope of Services
+with tab2:
+        st.subheader("Scope of Services")
+        st.markdown("Select the tasks to include, enter the fee, and choose the fee type for each task.")
+        
+        selected_tasks = {}
+        
+        for task_num in sorted(DEFAULT_FEES.keys()):
+            task = DEFAULT_FEES[task_num]
+            
+            col_check, col_name, col_fee, col_type = st.columns([0.5, 3, 1.5, 1.5])
+            
+            with col_check:
+                task_selected = st.checkbox(
+                    f"{task_num}",
+                    value=(task_num == '310'),  # Auto-check Task 310
+                    key=f"check_{task_num}",
+                    label_visibility="collapsed"
+                )
+            
+            with col_name:
+                if task_num == '310':
+                    st.markdown(f"**Task {task_num}: {task['name']}** *(uncheck if not needed)*")
+                else:
+                    st.markdown(f"**Task {task_num}: {task['name']}**")
+            
+            with col_fee:
+                fee_amount = st.number_input(
+                    "Fee ($)",
+                    min_value=0,
+                    value=None,
+                    placeholder=f"{task['amount']:,}",
+                    key=f"fee_{task_num}",
+                    disabled=not task_selected,
+                    label_visibility="collapsed"
+                )
+            
+            with col_type:
+                fee_type_selection = st.selectbox(
+                    "Type",
+                    options=["Hourly, Not-to-Exceed", "Hourly", "Lump Sum"],
+                    index=0,  # Default to Hourly, Not-to-Exceed
+                    key=f"type_{task_num}",
+                    disabled=not task_selected,
+                    label_visibility="collapsed"
+                )
+            
+            if task_selected:
+                final_fee = fee_amount if fee_amount is not None else task['amount']
+                selected_tasks[task_num] = {
+                    'name': task['name'],
+                    'fee': final_fee,
+                    'type': fee_type_selection  # Use per-task fee type
+                }
+                
+                # Task 310 - Construction Phase Services selection
+                if task_num == '310':
+                    st.markdown("**📋 Construction Phase Services:**")
+                    st.caption("Select services, enter hours/count, rate, and cost")
+                    
+                    # Header row
+                    col_h1, col_h2, col_h3, col_h4, col_h5 = st.columns([0.5, 3, 1.5, 1.5, 1.5])
+                    with col_h1:
+                        st.write("")
+                    with col_h2:
+                        st.markdown("**Service**")
+                    with col_h3:
+                        st.markdown("**Hrs/Count**")
+                    with col_h4:
+                        st.markdown("**$/hr**")
+                    with col_h5:
+                        st.markdown("**Cost ($)**")
+                    
+                    # Services configuration
+                    services_list = [
+                        ('shop_drawings', 'Shop Drawing Review', 30, 165, 4950),
+                        ('rfi', 'RFI Response', 50, 165, 8250),
+                        ('oac', 'OAC Meetings', 24, 0, 3000),
+                        ('site_visits', 'Site Visits (2 hrs each)', 4, 0, 1000),
+                        ('asbuilt', 'As-Built Reviews', 2, 0, 500),
+                        ('inspection_tv', 'Inspection & TV Reports', 0, 165, 0),
+                        ('record_drawings', 'Record Drawings (Water/Sewer)', 40, 165, 6600),
+                        ('fdep', 'FDEP Clearance Submittals', 0, 0, 0),
+                        ('compliance', 'Letter of General Compliance', 0, 0, 0),
+                        ('wmd', 'WMD Certification', 0, 0, 0)
+                    ]
+                    
+                    service_data = {}
+                    
+                    for svc_key, svc_name, default_hrs, default_rate, default_cost in services_list:
+                        col_chk, col_nm, col_hrs, col_rate, col_cost = st.columns([0.5, 3, 1.5, 1.5, 1.5])
+                        
+                        with col_chk:
+                            is_selected = st.checkbox(
+                                "✓",
+                                value=(svc_key in ['shop_drawings', 'rfi', 'oac', 'site_visits', 'asbuilt', 'fdep', 'compliance', 'wmd']),
+                                key=f"svc310_{svc_key}",
+                                label_visibility="collapsed"
+                            )
+                        
+                        with col_nm:
+                            st.markdown(f"{svc_name}")
+                        
+                        with col_hrs:
+                            if default_hrs > 0 or svc_key in ['inspection_tv', 'record_drawings']:
+                                hrs_value = st.number_input(
+                                    "Hrs",
+                                    min_value=0,
+                                    value=default_hrs,
+                                    key=f"hrs310_{svc_key}",
+                                    disabled=not is_selected,
+                                    label_visibility="collapsed"
+                                )
+                            else:
+                                hrs_value = 0
+                                st.write("—")
+                        
+                        with col_rate:
+                            if default_rate > 0 or svc_key in ['inspection_tv', 'record_drawings']:
+                                rate_value = st.number_input(
+                                    "Rate",
+                                    min_value=0,
+                                    value=default_rate,
+                                    key=f"rate310_{svc_key}",
+                                    disabled=not is_selected,
+                                    label_visibility="collapsed"
+                                )
+                            else:
+                                rate_value = 0
+                                st.write("—")
+                        
+                        with col_cost:
+                            if is_selected:
+                                cost_value = st.number_input(
+                                    "Cost",
+                                    min_value=0,
+                                    value=default_cost,
+                                    key=f"cost310_{svc_key}",
+                                    disabled=not is_selected,
+                                    label_visibility="collapsed"
+                                )
+                            else:
+                                cost_value = 0
+                                st.write("—")
+                        
+                        service_data[svc_key] = {
+                            'included': is_selected,
+                            'name': svc_name,
+                            'hours': hrs_value if is_selected else 0,
+                            'rate': rate_value if is_selected else 0,
+                            'cost': cost_value if is_selected else 0
+                        }
+                    
+                    st.markdown("---")
+                    total_hrs = st.number_input(
+                        "**Total Task 310 Hours**",
+                        min_value=0,
+                        value=180,
+                        key="total_construction_hours"
+                    )
+                    
+                    selected_tasks[task_num]['services'] = service_data
+                    selected_tasks[task_num]['total_hours'] = total_hrs
+                    
+                    # Create hours dictionary for placeholder replacement in document generation
+                    selected_tasks[task_num]['hours'] = {
+                        'shop_drawing': service_data['shop_drawings']['hours'],
+                        'rfi': service_data['rfi']['hours'],
+                        'oac_meetings': service_data['oac']['hours'],
+                        'site_visits': service_data['site_visits']['hours'],
+                        'record_drawing': service_data['record_drawings']['hours'],
+                        'total': total_hrs
+                    }
+    
+    
+    
+    
+
+# TAB 3: Assumptions & Permits
+with tab3:
+        st.subheader("Permitting Requirements")
+        st.markdown("Select the permits/approvals required for this project (applies to Task 150 - Civil Permitting):")
+        
+        permit_config = PERMIT_MAPPING.get(st.session_state.get('county', ''), {})
+        default_permits = permit_config.get('default_permits', [])
+        ahj_name = permit_config.get('ahj_name', 'Authority Having Jurisdiction')
+        wmd_name = permit_config.get('wmd_short', 'Water Management District')
+        
+        col_permit1, col_permit2, col_permit3 = st.columns(3)
+        
+        with col_permit1:
+            permit_ahj = st.checkbox(f"{ahj_name}", value=("ahj" in default_permits), help="Primary permitting authority")
+            permit_sewer = st.checkbox("Sewer Provider", value=("sewer" in default_permits))
+            permit_water = st.checkbox("Water Provider", value=("water" in default_permits))
+        
+        with col_permit2:
+            permit_wmd_erp = st.checkbox(f"{wmd_name} ERP", value=("wmd_erp" in default_permits), help="Environmental Resources Permit")
+            permit_fdep = st.checkbox("FDEP Potable Water/Wastewater", value=("fdep" in default_permits))
+            permit_fdot_drainage = st.checkbox("FDOT Drainage Connection", value=("fdot_drainage" in default_permits))
+        
+        with col_permit3:
+            permit_fdot_driveway = st.checkbox("FDOT Driveway Connection", value=("fdot_driveway" in default_permits))
+            permit_fdot_utility = st.checkbox("FDOT Utility Connection", value=("fdot_utility" in default_permits))
+            permit_fema = st.checkbox("FEMA", value=("fema" in default_permits))
         
         st.markdown("---")
-        st.markdown(f"### **Total Fee: ${total_fee:,}**")
-    else:
-        st.info("👆 Select at least one task in the Scope of Services tab")
-
-
-# TAB 5: Invoice/Billing & Generate
-with tab5:
-    st.subheader("Invoice & Billing Information")
-    col_inv1, col_inv2 = st.columns(2)
-    
-    with col_inv1:
-        invoice_email = st.text_input(
-            "Invoice Email Address",
-            placeholder="e.g., accounting@company.com",
-            help="Primary email for invoices"
-        )
-        kh_signer_name = st.text_input(
-            "Kimley-Horn Signer Name",
-            placeholder="e.g., John Smith, PE"
-        )
         
-        # Retainer checkbox and amount
-        use_retainer = st.checkbox(
-            "Require Retainer",
-            value=False,
-            help="Check if this proposal requires an upfront retainer fee"
-        )
-    
-    with col_inv2:
-        invoice_cc_email = st.text_input(
-            "CC Email (optional)",
-            placeholder="e.g., manager@company.com",
-            help="Additional recipient for invoices"
-        )
-        kh_signer_title = st.text_input(
-            "Kimley-Horn Signer Title",
-            placeholder="e.g., Senior Project Manager"
-        )
+        # Additional Services Configuration
+        st.subheader("Additional Services")
+        st.markdown("**Check the services you ARE providing** in this proposal and enter the fee. Unchecked services will be listed as 'Additional Services' (not included).")
         
-        # Retainer amount (disabled if not using retainer)
-        retainer_amount = st.number_input(
-            "Retainer Amount ($)",
-            min_value=0,
-            value=0,
-            disabled=not use_retainer,
-            help="Upfront retainer fee required before work begins"
-        )
-    
-    st.markdown("---")
-    st.markdown("---")
-    
-    # Generate Document Section
-    st.subheader("📄 Generate Proposal Document")
-    
-    required_fields = {
-        'County': st.session_state.get('county', ''),
-        'City': st.session_state.get('city', ''),
-        'Client Name': st.session_state.get('client_name', ''),
-        'Legal Entity Name': st.session_state.get('legal_entity_name', ''),
-        'Contact Person': st.session_state.get('contact_person', ''),
-        'Address Line 1': st.session_state.get('address_line1', ''),
-        'Address Line 2': st.session_state.get('address_line2', ''),
-        'Project Name': st.session_state.get('project_name', ''),
-        'Project Description': st.session_state.get('project_description', '')
-    }
-    
-    missing_fields = [field for field, value in required_fields.items() if not value]
-    
-    if missing_fields:
-        st.warning(f"⚠️ Please fill in: {', '.join(missing_fields)}")
-    
-    if not selected_tasks:
-        st.warning("⚠️ Please select at least one task in the Scope of Services tab")
-    
-    can_generate = not missing_fields and bool(selected_tasks)
-    
-    if st.button("🚀 Generate Proposal Document", type="primary", disabled=not can_generate):
-        with st.spinner("Generating proposal document..."):
-            try:
-                # Collect assumptions
-                assumptions = []
-                if assume_survey:
-                    assumptions.append("Boundary, topographic, and tree survey will be provided by the Client.")
-                if assume_environmental:
-                    assumptions.append("An Environmental/Biological assessment and Geotechnical investigation report will be provided by the Client.")
-                if assume_geotech:
-                    assumptions.append("A Geotechnical investigation report will be provided by the Client.")
-                if assume_zoning:
-                    assumptions.append("The proposed use is consistent with the property's future land use and zoning designations.")
-                if has_conceptual_plan and conceptual_plan_date:
-                    assumptions.append(f"This proposal is based on the conceptual site plan dated {conceptual_plan_date}.")
-                if assume_utilities:
-                    assumptions.append("Utilities are available at the project boundary and have the capacity to serve the proposed development.")
-                if assume_offsite:
-                    assumptions.append("Offsite roadway improvements or right-of-way permitting is not included.")
-                if assume_traffic:
-                    assumptions.append("Traffic Study, impact analysis, and traffic counts, if required, will be provided by others.")
-                if assume_one_phase:
-                    assumptions.append("The project will be constructed in one (1) phase.")
-                
-                # Collect permitting requirements
-                permit_config = PERMIT_MAPPING.get(st.session_state.get('county', ''), {})
-                ahj_name = permit_config.get('ahj_name', 'Authority Having Jurisdiction')
-                wmd_full = permit_config.get('wmd', 'Water Management District')
-                
-                permits = []
-                if permit_ahj:
-                    permits.append(ahj_name)
-                if permit_sewer:
-                    permits.append(f"{ahj_name} Sewer")
-                if permit_water:
-                    permits.append(f"{ahj_name} Water")
-                if permit_wmd_erp:
-                    permits.append(f"{wmd_full} Environmental Resources Permit (ERP)")
-                if permit_fdep:
-                    permits.append("Florida Department of Environmental Protection (FDEP) Potable Water and Wastewater Permit")
-                if permit_fdot_drainage:
-                    permits.append("FDOT Drainage Connection Permit")
-                if permit_fdot_driveway:
-                    permits.append("FDOT Driveway Connection Permit")
-                if permit_fdot_utility:
-                    permits.append("FDOT Utility Connection Permit")
-                if permit_fema:
-                    permits.append("FEMA")
-                
-                client_info = {
-                    'name': st.session_state.get('client_name', ''),
-                    'legal_entity': st.session_state.get('legal_entity_name', ''),
-                    'contact': st.session_state.get('contact_person', ''),
-                    'address1': st.session_state.get('address_line1', ''),
-                    'address2': st.session_state.get('address_line2', ''),
-                    'phone': st.session_state.get('phone', ''),
-                    'email': st.session_state.get('email', '')
-                }
-                
-                project_info = {
-                    'date': st.session_state.get('proposal_date', date.today()).strftime("%B %d, %Y"),
-                    'name': st.session_state.get('project_name', ''),
-                    'address': st.session_state.get('project_address', ''),
-                    'city_state_zip': st.session_state.get('project_city_state_zip', ''),
-                    'description': st.session_state.get('project_description', ''),
-                    'county': st.session_state.get('county', ''),
-                    'city': st.session_state.get('city', ''),
-                    'parcel_id': st.session_state.get('parcel_id', ''),
-                    'permits': permits,
-                    # Property lookup data for Project Understanding paragraph
-                    'site_acres': st.session_state.get('lookup_site_area_acres', ''),
-                    'future_land_use': st.session_state.get('lookup_land_use', ''),
-                    'zoning': st.session_state.get('lookup_zoning', '')
-                }
-                
-                invoice_info = {
-                    'email': invoice_email,
-                    'cc_email': invoice_cc_email,
-                    'kh_signer_name': kh_signer_name,
-                    'kh_signer_title': kh_signer_title,
-                    'use_retainer': use_retainer,
-                    'retainer_amount': retainer_amount if use_retainer else 0
-                }
-                
-                buffer = BytesIO()
-                temp_path = '/tmp/temp_proposal.docx'
-                generate_proposal_document(client_info, project_info, selected_tasks, assumptions, permits, invoice_info, included_additional_services, included_additional_services_with_fees, excluded_additional_services, temp_path)
-                
-                with open(temp_path, 'rb') as f:
-                    buffer.write(f.read())
-                buffer.seek(0)
-                
-                filename = f"Proposal_{st.session_state.get('project_name', 'Document').replace(' ', '_')[:30]}_{st.session_state.get('proposal_date', date.today()).strftime('%Y%m%d')}.docx"
-                
-                st.success("✅ **Proposal document generated successfully!**")
-                
-                st.download_button(
-                    label="📥 Download Word Document",
-                    data=buffer.getvalue(),
-                    file_name=filename,
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    type="primary",
-                    use_container_width=True
+        # Default list of additional services with suggested default fees
+        additional_services_list = [
+            ("offsite_roadway", "Off-site roadway, traffic signal design or utility improvements", False, 25000),
+            ("offsite_utility", "Off-site utility capacity analysis and extensions", False, 15000),
+            ("utility_relocation", "Utility relocation design and plans", False, 12000),
+            ("cost_opinions", "Preparation of opinions of probable construction costs", False, 5000),
+            ("dewatering", "Dewatering permitting (to be provided by Contractor)", False, 3000),
+            ("site_lighting", "Site lighting, photometric, and site electrical plan", False, 8000),
+            ("dry_utility", "Dry utility coordination and design", False, 10000),
+            ("landscape", "Landscape, irrigation, hardscape design and tree mitigation", False, 20000),
+            ("fire_line", "Fire line design", False, 6000),
+            ("row_permitting", "Right-of-way permitting", False, 8000),
+            ("concurrency", "Concurrency application assistance", False, 5000),
+            ("3d_modeling", "3D modeling and graphic/presentations", False, 8000),
+            ("leed", "LEED certification and review", False, 20000),
+            ("schematic_dd", "Schematic and design development plans", False, 15000),
+            ("extra_meetings", "Meetings other than those described in the tasks above", False, 5000),
+            ("surveying", "Boundary, topographic and tree surveying, platting and subsurface utility exploration", False, 25000),
+            ("platting", "Platting or easement assistance", False, 8000),
+            ("traffic_studies", "Traffic studies, analysis, property share agreement", False, 30000),
+            ("mot_plans", "Maintenance of traffic plans", False, 12000),
+            ("structural", "Structural engineering (including retaining walls)", False, 35000),
+            ("signage", "Signage design", False, 4000),
+            ("extra_design", "Design elements beyond those outlined in the above project understanding", False, 10000),
+            ("peer_review", "Responding to comments from third-party peer review", False, 8000)
+        ]
+        
+        st.caption("💡 Tip: Check services you ARE including and enter fees. Unchecked items appear in 'Additional Services (Not Included)' section.")
+        
+        # Create 2-column layout: Service name (left) + Fee (right)
+        included_additional_services = []
+        excluded_additional_services = []
+        included_additional_services_with_fees = {}  # Store as dict with fees
+        
+        for key, service_name, default_checked, default_fee in additional_services_list:
+            col_service, col_fee = st.columns([3, 1])
+            
+            with col_service:
+                is_checked = st.checkbox(
+                    service_name,
+                    value=default_checked,
+                    key=f"addl_svc_{key}"
                 )
-                
-            except Exception as e:
-                st.error(f"❌ **Error:** {str(e)}")
-                with st.expander("Show Error Details"):
-                    st.exception(e)
+            
+            with col_fee:
+                fee_amount = st.number_input(
+                    "Fee ($)",
+                    min_value=0,
+                    value=None,
+                    placeholder=f"{default_fee:,}",
+                    key=f"addl_fee_{key}",
+                    disabled=not is_checked,
+                    label_visibility="collapsed"
+                )
+            
+            if is_checked:
+                final_fee = fee_amount if fee_amount is not None else default_fee
+                included_additional_services.append(service_name)
+                included_additional_services_with_fees[service_name] = final_fee
+            else:
+                excluded_additional_services.append(service_name)
+        
+        st.markdown("---")
+        
+        # Summary
+        st.subheader("Selected Tasks Summary")
+        if selected_tasks or included_additional_services_with_fees:
+            total_fee = 0
+            
+            # Show regular tasks
+            for task_num in sorted(selected_tasks.keys()):
+                task = selected_tasks[task_num]
+                st.write(f"✓ Task {task_num}: {task['name']} — **${task['fee']:,}**")
+                total_fee += task['fee']
+            
+            # Show included additional services
+            if included_additional_services_with_fees:
+                st.markdown("**Additional Services Included:**")
+                for service_name, service_fee in included_additional_services_with_fees.items():
+                    st.write(f"✓ {service_name} — **${service_fee:,}**")
+                    total_fee += service_fee
+            
+            st.markdown("---")
+            st.markdown(f"### **Total Fee: ${total_fee:,}**")
+        else:
+            st.info("👆 Select at least one task in the Scope of Services tab")
+    
+    
+
+# TAB 4: Invoice & Generate
+with tab4:
+        st.subheader("Invoice & Billing Information")
+        col_inv1, col_inv2 = st.columns(2)
+        
+        with col_inv1:
+            invoice_email = st.text_input(
+                "Invoice Email Address",
+                placeholder="e.g., accounting@company.com",
+                help="Primary email for invoices"
+            )
+            kh_signer_name = st.text_input(
+                "Kimley-Horn Signer Name",
+                placeholder="e.g., John Smith, PE"
+            )
+            
+            # Retainer checkbox and amount
+            use_retainer = st.checkbox(
+                "Require Retainer",
+                value=False,
+                help="Check if this proposal requires an upfront retainer fee"
+            )
+        
+        with col_inv2:
+            invoice_cc_email = st.text_input(
+                "CC Email (optional)",
+                placeholder="e.g., manager@company.com",
+                help="Additional recipient for invoices"
+            )
+            kh_signer_title = st.text_input(
+                "Kimley-Horn Signer Title",
+                placeholder="e.g., Senior Project Manager"
+            )
+            
+            # Retainer amount (disabled if not using retainer)
+            retainer_amount = st.number_input(
+                "Retainer Amount ($)",
+                min_value=0,
+                value=0,
+                disabled=not use_retainer,
+                help="Upfront retainer fee required before work begins"
+            )
+        
+        st.markdown("---")
+        st.markdown("---")
+        
+        # Generate Document Section
+        st.subheader("📄 Generate Proposal Document")
+        
+        required_fields = {
+            'County': st.session_state.get('county', ''),
+            'City': st.session_state.get('city', ''),
+            'Client Name': st.session_state.get('client_name', ''),
+            'Legal Entity Name': st.session_state.get('legal_entity_name', ''),
+            'Contact Person': st.session_state.get('contact_person', ''),
+            'Address Line 1': st.session_state.get('address_line1', ''),
+            'Address Line 2': st.session_state.get('address_line2', ''),
+            'Project Name': st.session_state.get('project_name', ''),
+            'Project Description': st.session_state.get('project_description', '')
+        }
+        
+        missing_fields = [field for field, value in required_fields.items() if not value]
+        
+        if missing_fields:
+            st.warning(f"⚠️ Please fill in: {', '.join(missing_fields)}")
+        
+        if not selected_tasks:
+            st.warning("⚠️ Please select at least one task in the Scope of Services tab")
+        
+        can_generate = not missing_fields and bool(selected_tasks)
+        
+        if st.button("🚀 Generate Proposal Document", type="primary", disabled=not can_generate):
+            with st.spinner("Generating proposal document..."):
+                try:
+                    # Collect assumptions
+                    assumptions = []
+                    if assume_survey:
+                        assumptions.append("Boundary, topographic, and tree survey will be provided by the Client.")
+                    if assume_environmental:
+                        assumptions.append("An Environmental/Biological assessment and Geotechnical investigation report will be provided by the Client.")
+                    if assume_geotech:
+                        assumptions.append("A Geotechnical investigation report will be provided by the Client.")
+                    if assume_zoning:
+                        assumptions.append("The proposed use is consistent with the property's future land use and zoning designations.")
+                    if has_conceptual_plan and conceptual_plan_date:
+                        assumptions.append(f"This proposal is based on the conceptual site plan dated {conceptual_plan_date}.")
+                    if assume_utilities:
+                        assumptions.append("Utilities are available at the project boundary and have the capacity to serve the proposed development.")
+                    if assume_offsite:
+                        assumptions.append("Offsite roadway improvements or right-of-way permitting is not included.")
+                    if assume_traffic:
+                        assumptions.append("Traffic Study, impact analysis, and traffic counts, if required, will be provided by others.")
+                    if assume_one_phase:
+                        assumptions.append("The project will be constructed in one (1) phase.")
+                    
+                    # Collect permitting requirements
+                    permit_config = PERMIT_MAPPING.get(st.session_state.get('county', ''), {})
+                    ahj_name = permit_config.get('ahj_name', 'Authority Having Jurisdiction')
+                    wmd_full = permit_config.get('wmd', 'Water Management District')
+                    
+                    permits = []
+                    if permit_ahj:
+                        permits.append(ahj_name)
+                    if permit_sewer:
+                        permits.append(f"{ahj_name} Sewer")
+                    if permit_water:
+                        permits.append(f"{ahj_name} Water")
+                    if permit_wmd_erp:
+                        permits.append(f"{wmd_full} Environmental Resources Permit (ERP)")
+                    if permit_fdep:
+                        permits.append("Florida Department of Environmental Protection (FDEP) Potable Water and Wastewater Permit")
+                    if permit_fdot_drainage:
+                        permits.append("FDOT Drainage Connection Permit")
+                    if permit_fdot_driveway:
+                        permits.append("FDOT Driveway Connection Permit")
+                    if permit_fdot_utility:
+                        permits.append("FDOT Utility Connection Permit")
+                    if permit_fema:
+                        permits.append("FEMA")
+                    
+                    client_info = {
+                        'name': st.session_state.get('client_name', ''),
+                        'legal_entity': st.session_state.get('legal_entity_name', ''),
+                        'contact': st.session_state.get('contact_person', ''),
+                        'address1': st.session_state.get('address_line1', ''),
+                        'address2': st.session_state.get('address_line2', ''),
+                        'phone': st.session_state.get('phone', ''),
+                        'email': st.session_state.get('email', '')
+                    }
+                    
+                    project_info = {
+                        'date': st.session_state.get('proposal_date', date.today()).strftime("%B %d, %Y"),
+                        'name': st.session_state.get('project_name', ''),
+                        'address': st.session_state.get('project_address', ''),
+                        'city_state_zip': st.session_state.get('project_city_state_zip', ''),
+                        'description': st.session_state.get('project_description', ''),
+                        'county': st.session_state.get('county', ''),
+                        'city': st.session_state.get('city', ''),
+                        'parcel_id': st.session_state.get('parcel_id', ''),
+                        'permits': permits,
+                        # Property lookup data for Project Understanding paragraph
+                        'site_acres': st.session_state.get('lookup_site_area_acres', ''),
+                        'future_land_use': st.session_state.get('lookup_land_use', ''),
+                        'zoning': st.session_state.get('lookup_zoning', '')
+                    }
+                    
+                    invoice_info = {
+                        'email': invoice_email,
+                        'cc_email': invoice_cc_email,
+                        'kh_signer_name': kh_signer_name,
+                        'kh_signer_title': kh_signer_title,
+                        'use_retainer': use_retainer,
+                        'retainer_amount': retainer_amount if use_retainer else 0
+                    }
+                    
+                    buffer = BytesIO()
+                    temp_path = '/tmp/temp_proposal.docx'
+                    generate_proposal_document(client_info, project_info, selected_tasks, assumptions, permits, invoice_info, included_additional_services, included_additional_services_with_fees, excluded_additional_services, temp_path)
+                    
+                    with open(temp_path, 'rb') as f:
+                        buffer.write(f.read())
+                    buffer.seek(0)
+                    
+                    filename = f"Proposal_{st.session_state.get('project_name', 'Document').replace(' ', '_')[:30]}_{st.session_state.get('proposal_date', date.today()).strftime('%Y%m%d')}.docx"
+                    
+                    st.success("✅ **Proposal document generated successfully!**")
+                    
+                    st.download_button(
+                        label="📥 Download Word Document",
+                        data=buffer.getvalue(),
+                        file_name=filename,
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        type="primary",
+                        use_container_width=True
+                    )
+                    
+                except Exception as e:
+                    st.error(f"❌ **Error:** {str(e)}")
+                    with st.expander("Show Error Details"):
+                        st.exception(e)
 
 st.markdown("---")
-st.caption("Development Services Proposal Generator | Kimley-Horn")
+st.caption("Development Services Proposal Generator | Kimley-Horn - Tampa Bay Counties")
