@@ -1,0 +1,43 @@
+{
+  "Clearwater": {
+    "type": "city_app",
+    "zoning_flu_app": "https://cityofclearwater.maps.arcgis.com/apps/webappviewer/index.html?id=1787a41a5bc7484fa499f6f4a13539ac"
+  },
+  "Pinellas Park": {
+    "type": "city_app",
+    "gis_viewer_app": "https://pinellaspark.maps.arcgis.com/apps/webappviewer/index.html?id=52e93e146f0a4a16b5d2f19a49d8d8ae"
+  },
+  "Safety Harbor": {
+    "type": "city_app",
+    "zoning_flu_lookup_app": "https://safetyharborgis.maps.arcgis.com/apps/experiencebuilder/experience/?id=4bc4f07b7c5d44a8a8f2b058a6d31dd4"
+  },
+  "Oldsmar": {
+    "type": "city_app",
+    "zoning_lookup_app": "https://cityofoldsmar.maps.arcgis.com/apps/webappviewer/index.html?id=f0dfe3a1d2de4d8d80cfe0e77c2d9db8"
+  },
+  "Dunedin": {
+    "type": "city_app",
+    "open_data_hub": "https://dunedingis-hub-dunedingis.hub.arcgis.com/"
+  },
+  "Tarpon Springs": {
+    "type": "city_app",
+    "future_land_use_2045_app": "https://tarponsprings.maps.arcgis.com/apps/webappviewer/index.html?id=3b2f51f3f94f48e186a6d4bbf0ec6d34"
+  },
+  "St. Petersburg": {
+    "type": "city_app",
+    "zoning_app": "https://egis.stpete.org/portal/apps/webappviewer/index.html?id=f0ff270cad0940a2879b38e955319dfa"
+  },
+  "Pinellas Planning Council (PPC) Municipal Zoning": {
+    "type": "regional_service",
+    "mapserver": "https://egis.pinellas.gov/gis/rest/services/AGO/PPC_Data/MapServer",
+    "notes": "Contains multiple municipal zoning layers (e.g., Belleair, Indian Rocks Beach, Indian Shores, Kenneth City, Madeira Beach, North Redington Beach, Redington Shores, Seminole, South Pasadena, Treasure Island)."
+  },
+  "Pinellas County Unincorporated Zoning + FLU": {
+    "type": "county_service",
+    "mapserver": "https://egis.pinellas.gov/gis/rest/services/PublicWebGIS/Landuse_Zoning/MapServer",
+    "layers": {
+      "future_land_use_unincorporated": 0,
+      "zoning_unincorporated": 1
+    }
+  }
+}
