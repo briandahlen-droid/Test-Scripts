@@ -1,0 +1,24 @@
+{
+  "pinellas": {
+    "parcels_layer": "https://egis.pinellas.gov/gis/rest/services/PublicWebGIS/Parcels/MapServer/1",
+    "parcel_id_field": "PARCELID_DSP1",
+    "municipal_boundary_layer": "https://egis.pinellas.gov/gis/rest/services/AGO/Basemap/MapServer/5",
+    "municipal_name_field": "NAME",
+    "unincorporated": {
+      "zoning_layer": "https://egis.pinellas.gov/gis/rest/services/PublicWebGIS/Landuse_Zoning/MapServer/1",
+      "flu_layer": "https://egis.pinellas.gov/gis/rest/services/PublicWebGIS/Landuse_Zoning/MapServer/0"
+    },
+    "known_city_overrides": {
+      "St. Petersburg": {
+        "zoning_layer": "https://egis.stpete.org/arcgis/rest/services/ServicesDSD/Zoning/MapServer/3",
+        "flu_layer": "https://egis.stpete.org/arcgis/rest/services/ServicesDSD/Zoning/MapServer/4"
+      }
+    }
+  },
+  "hillsborough": {
+    "note": "TODO: copy your working Hillsborough parcel + muni boundary + zoning + FLU endpoints into this block."
+  },
+  "pasco": {
+    "note": "TODO: copy your working Pasco parcel + muni boundary + zoning + FLU endpoints into this block."
+  }
+}
